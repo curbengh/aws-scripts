@@ -1,4 +1,16 @@
-## AWS Resource Compliance using AWS Config
+## WAF ACL Review
+
+```
+$ ./waf-acl.py --profile {profile-name} --directory {output-dir} --original --wcu --total-wcu
+```
+
+- **profile-name**: The profile name as listed in "~/.aws/credentials".
+- **directory**: Output directory. It will be created if not exist. Defaults to current folder.
+- **original**: Preserve the original ACL after conversion and save it with "-original" suffix.
+- **wcu**: Output Web ACL Capacity Unit (WCU) of each rule
+- **total-wcu**: Output the total WCU of each web ACL
+
+## Resource Compliance using AWS Config
 
 Script duration is roughly 1 minute per 1000 rules.
 
@@ -7,13 +19,13 @@ Script duration is roughly 1 minute per 1000 rules.
 List of rules across all accounts and regions.
 
 ```
-$ ./all-rules.py --profile profile-name --output output-dir
+$ ./all-rules.py --profile {profile-name} --output {output-dir}
 ```
 
 ### Resource Compliance
 
 ```
-$ ./aws-config.py --profile profile-name --rule rule-name --output output-dir
+$ ./aws-config.py --profile {profile-name} --rule {rule-name} --output {output-dir}
 ```
 
 Supported rules:
