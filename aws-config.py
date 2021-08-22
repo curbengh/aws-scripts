@@ -127,7 +127,7 @@ for ele in resourceList:
 
 ruleList = select_aggregate_resource_config("SELECT accountId, awsRegion, configuration.targetResourceId, configuration.configRuleList.configRuleName, configuration.configRuleList.complianceType WHERE resourceType = 'AWS::Config::ResourceCompliance'")
 compliance_list = []
-account_name_dict = {
+ACC_NAME_DICT = {
   '012345678901': 'account-name',
 }
 
@@ -137,7 +137,7 @@ AWS_ACC_RULES = [
   'iam-root-access-key-check'
 ]
 if rule in AWS_ACC_RULES:
-  id_name_dict = account_name_dict
+  id_name_dict = ACC_NAME_DICT
 
 for result in ruleList:
   resource = loads(result)
@@ -146,7 +146,7 @@ for result in ruleList:
     if rule in c_rule['configRuleName'] and id_no in id_name_dict:
       compliance_list.append({
         'accountId': resource['accountId'],
-        'accountName': account_name_dict[resource['accountId']],
+        'accountName': ACC_NAME_DICT[resource['accountId']],
         'awsRegion': resource['awsRegion'],
         resourceType: id_no,
         resourceName: id_name_dict[id_no],

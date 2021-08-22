@@ -1,5 +1,7 @@
 ## WAF ACL Review
 
+Each web ACL will be saved to a JSON file named "{web-acl-name}-{YYYYMMDD}.json".
+
 ```
 $ ./waf-acl.py --profile {profile-name} --directory {output-dir} --original --wcu --total-wcu
 ```
@@ -16,13 +18,24 @@ Script duration is roughly 1 minute per 1000 rules.
 
 ### List of resource compliance rules
 
-List of rules across all accounts and regions.
+List of rules across all accounts and regions. Output will be saved to "aws-config-rules.txt".
 
 ```
 $ ./all-rules.py --profile {profile-name} --output {output-dir}
 ```
 
 ### Resource Compliance
+
+List (non-)complient resources according to AWS Config rules.
+
+Output will be saved to "{rule-name}-{YYYYMMDD}.csv" with the following columns:
+
+- accountId
+- accountName (_see `ACC_NAME_DICT` constant to configure_)
+- awsRegion
+- resourceId (e.g. EC2 instance ID)
+- resourceName
+- compliance (i.e. `COMPLIANT` or `NON_COMPLIANT`)
 
 ```
 $ ./aws-config.py --profile {profile-name} --rule {rule-name} --output {output-dir}
