@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-# Usage: ./aws-config.py --profile profile-name --rule rule-name --output output-dir
-# Requirements: pip3 -q install boto3
+# Usage: ./aws-config.py --profile {profile-name} --rules {space separated rules} --output output-dir
 # Refer to README.md for more details
 
 from argparse import ArgumentParser
@@ -9,47 +8,180 @@ import boto3
 from botocore.config import Config
 from csv import DictWriter
 from datetime import date
-from json import loads
+from json import dump, dumps, load, loads
 from os import path
 from pathlib import Path
 
-RULES = [
+VALID_RULES = [
+  'access-keys-rotated',
+  'acm-certificate-expiration-check',
   'alb-http-drop-invalid-header-enabled',
   'alb-http-to-https-redirection-check',
+  'api-gw-associated-with-waf',
+  'api-gw-execution-logging-enabled',
+  'api-gw-ssl-enabled',
+  'api-gw-xray-enabled',
+  'aurora-mysql-backtracking-enabled',
+  'beanstalk-enhanced-health-reporting-enabled',
+  'cloud-trail-cloud-watch-logs-enabled',
+  'cloud-trail-log-file-validation-enabled',
+  'cloud-trail-enabled-in-region',
+  'cloud-trail-encryption-enabled',
+  'cloudfront-accesslogs-enabled',
+  'cloudfront-associated-with-waf',
+  'cloudfront-default-root-object-configured',
+  'cloudtrail-enabled',
+  'cmk-backing-key-rotation-enabled',
+  'codebuild-project-envvar-awscred-check',
+  'codebuild-project-source-repo-url-check',
+  'dynamodb-autoscaling-enabled',
+  'dynamodb-pitr-enabled',
   'ebs-snapshot-public-restorable-check',
+  'ec2-ebs-encryption-by-default',
+  'ec2-imdsv2-check',
   'ec2-instance-managed-by-ssm',
+  'ec2-instance-multiple-eni-check',
   'ec2-instance-no-public-ip',
+  'ec2-managedinstance-association-compliance-status-check',
+  'ec2-managedinstance-patch-compliance',
+  'ec2-security-group-attached-to-eni',
+  'ec2-stopped-instance',
+  'ecs-task-definition-user-for-host-mode-check',
+  'efs-encrypted-check',
+  'efs-in-backup-plan',
+  'eip-attached',
+  'elastic-beanstalk-managed-updates-enabled',
+  'elb-connection-draining-enabled',
+  'elb-logging-enabled',
+  'elb-tls-https-listeners-only',
+  'encrypted-volumes',
+  'fms-shield-resource-policy-check',
+  'guardduty-enabled-centralized',
+  'iam-customer-policy-blocked-kms-actions',
+  'iam-inline-policy-blocked-kms-actions',
+  'iam-password-policy-recommended-defaults',
+  'iam-password-policy-recommended-defaults-no-symbols-required',
   'iam-policy-no-statements-with-admin-access',
   'iam-policy-no-statements-with-full-access',
   'iam-root-access-key-check',
   'iam-user-mfa-enabled',
+  'iam-user-no-policies-check',
   'iam-user-unused-credentials-check',
+  'kms-cmk-not-scheduled-for-deletion',
+  'lambda-dlq-check',
   'lambda-function-public-access-prohibited',
+  'lambda-function-settings-check',
+  'lambda-inside-vpc',
+  'mfa-set-on-root-account',
+  'multi-region-cloud-trail-enabled',
+  'rds-automatic-minor-version-upgrade-enabled',
+  'rds-cluster-copy-tags-to-snapshots-enabled',
+  'rds-cluster-deletion-protection-enabled',
+  'rds-cluster-iam-authentication-enabled',
+  'rds-cluster-multi-az-enabled',
+  'rds-deployed-in-vpc',
+  'rds-enhanced-monitoring-enabled',
+  'rds-instance-copy-tags-to-snapshots-enabled',
+  'rds-instance-deletion-protection-enabled',
+  'rds-instance-iam-authentication-enabled',
   'rds-instance-public-access-check',
+  'rds-logging-enabled',
+  'rds-multi-az-support',
+  'rds-no-default-ports',
+  'rds-snapshot-encrypted',
   'rds-snapshots-public-prohibited',
+  'rds-storage-encrypted',
+  'redshift-cluster-audit-logging-enabled',
+  'redshift-cluster-maintenancesettings-check',
+  'redshift-cluster-public-access-check',
+  'redshift-require-tls-ssl',
+  'redshift-enhanced-vpc-routing-enabled',
+  'resources_tagged',
   'restricted-ssh',
+  'root-account-hardware-mfa-enabled',
+  'root-account-mfa-enabled',
   's3-bucket-blacklisted-actions-prohibited',
   's3-bucket-level-public-access-prohibited',
   's3-bucket-public-read-prohibited',
   's3-bucket-public-write-prohibited',
+  's3-bucket-replication-enabled',
+  's3-bucket-server-side-encryption-enabled',
+  's3-bucket-ssl-requests-only',
+  'secretsmanager-rotation-enabled-check',
+  'secretsmanager-secret-periodic-rotation',
+  'secretsmanager-secret-unused',
+  'service-vpc-endpoint-enabled',
+  'shield-advanced-enabled',
+  'sns-encrypted-kms',
+  'sqs-queue-encrypted',
   'subnet-auto-assign-public-ip-disabled',
   'vpc-default-security-group-closed',
-  'vpc-network-acl-unused-check'
+  'vpc-flow-logs-enabled',
+  'vpc-network-acl-unused-check',
+  'vpc-sg-open-only-to-authorized-ports',
+  'vpc-sg-restricted-common-ports'
+]
+
+ACCOUNT_NAME_DICT = {
+  '012345678901': 'account-name'
+}
+
+VPC_RESOURCES = [
+  'ec2-imdsv2-check',
+  'ec2-instance-managed-by-ssm',
+  'ec2-instance-multiple-eni-check',
+  'ec2-instance-no-public-ip',
+  'ec2-stopped-instance',
+  'restricted-ssh',
+  'service-vpc-endpoint-enabled',
+  'subnet-auto-assign-public-ip-disabled',
+  'vpc-default-security-group-closed',
+  'vpc-flow-logs-enabled',
+  'vpc-network-acl-unused-check',
+  'vpc-sg-open-only-to-authorized-ports',
+  'vpc-sg-restricted-common-ports'
+]
+
+# Some rules don't have resourceId
+SKIP_RULES = [
+  'cloud-trail-enabled-in-region',
+  'cloudtrail-enabled',
+  'ebs-snapshot-public-restorable-check',
+  'ec2-ebs-encryption-by-default',
+  'ecs-task-definition-user-for-host-mode-check',
+  'efs-encrypted-check',
+  'efs-in-backup-plan',
+  'guardduty-enabled-centralized',
+  'iam-password-policy-recommended-defaults',
+  'iam-password-policy-recommended-defaults-no-symbols-required',
+  'iam-root-access-key-check',
+  'mfa-set-on-root-account',
+  'multi-region-cloud-trail-enabled',
+  'resources_tagged',
+  'root-account-hardware-mfa-enabled',
+  'root-account-mfa-enabled',
+  'secretsmanager-rotation-enabled-check',
+  'secretsmanager-secret-periodic-rotation',
+  'secretsmanager-secret-unused',
+  'shield-advanced-enabled',
+  'sns-encrypted-kms',
+  'sqs-queue-encrypted'
 ]
 
 parser = ArgumentParser(description = 'AWS Resource Compliance')
 parser.add_argument('--profile', '-p',
-  help = 'AWS profile name. Parsed from ~/.aws/credentials.')
-parser.add_argument('--rule', '-r',
-  choices = RULES,
-  help = 'AWS profile name. Parsed from ~/.aws/credentials.',
-  required = True)
+  help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).')
+parser.add_argument('--rules', '-r',
+  choices = VALID_RULES,
+  help = 'Config Rule',
+  required = True,
+  nargs = '+')
 parser.add_argument('--output', '-o',
   default = '',
   help = 'Output directory of CSV.')
 args = parser.parse_args()
 profile = args.profile
-rule = args.rule
+rules = args.rules
 dirPath = args.output
 Path(dirPath).mkdir(parents = True, exist_ok = True)
 
@@ -78,86 +210,169 @@ def select_aggregate_resource_config(Expression):
 
   return results
 
-resourceType = ''
-resourceName = 'resourceName'
-
-if rule.startswith('alb'):
-  resourceType = 'AWS::ElasticLoadBalancingV2::LoadBalancer'
-elif rule.startswith('ec2'):
-  resourceType = "AWS::EC2::Instance' AND configuration.state.name = 'running"
-elif rule.startswith('iam-policy'):
-  resourceType = 'AWS::IAM::Policy'
-elif rule.startswith('iam-user'):
-  resourceType = 'AWS::IAM::User'
-elif rule.startswith('lambda'):
-  resourceType = "AWS::Lambda::Function' AND configuration.state.value = 'Active"
-elif rule.startswith('rds-instance'):
-  resourceType = "AWS::RDS::DBInstance' AND configuration.dBInstanceStatus = 'available"
-elif rule.startswith('rds-snapshots'):
-  resourceType = "AWS::RDS::DBSnapshot' AND configuration.dBInstanceStatus = 'available"
-elif rule == 'restricted-ssh' or 'security-group' in rule:
-  resourceType = 'AWS::EC2::SecurityGroup'
-  resourceName = 'configuration.vpcId'
-elif rule.startswith('subnet'):
-  resourceType = 'AWS::EC2::Subnet'
-  resourceName = 'configuration.vpcId'
-elif rule.startswith('vpc'):
-  resourceType = 'AWS::EC2::NetworkAcl'
-  resourceName = 'configuration.vpcId'
-elif rule.startswith('s3'):
-  resourceType = 'AWS::S3::Bucket'
-
-# List all ALBs
-id_name_dict = {
-  # 'resourceId': 'resourceName'
-}
-VPC_RESOURCES = [
-  'restricted-ssh',
-  'subnet-auto-assign-public-ip-disabled',
-  'vpc-default-security-group-closed',
-  'vpc-network-acl-unused-check'
-]
-resourceList = select_aggregate_resource_config(f"SELECT resourceId, {resourceName} WHERE resourceType = '{resourceType}'")
-for ele in resourceList:
-  resource = loads(ele)
-  if rule in VPC_RESOURCES:
-    id_name_dict[resource['resourceId']] = resource['configuration']['vpcId']
-  else:
-    id_name_dict[resource['resourceId']] = resource['resourceName']
-
-ruleList = select_aggregate_resource_config("SELECT accountId, awsRegion, configuration.targetResourceId, configuration.configRuleList.configRuleName, configuration.configRuleList.complianceType WHERE resourceType = 'AWS::Config::ResourceCompliance'")
-compliance_list = []
-ACC_NAME_DICT = {
-  '012345678901': 'account-name',
-}
-
-# Some rules are under AWS::::Account resource
-AWS_ACC_RULES = [
-  'ebs-snapshot-public-restorable-check',
-  'iam-root-access-key-check'
-]
-if rule in AWS_ACC_RULES:
-  id_name_dict = ACC_NAME_DICT
-
-for result in ruleList:
-  resource = loads(result)
-  id_no = resource['configuration']['targetResourceId']
-  for c_rule in resource['configuration']['configRuleList']:
-    if rule in c_rule['configRuleName'] and id_no in id_name_dict:
-      compliance_list.append({
-        'accountId': resource['accountId'],
-        'accountName': ACC_NAME_DICT[resource['accountId']],
-        'awsRegion': resource['awsRegion'],
-        resourceType: id_no,
-        resourceName: id_name_dict[id_no],
-        'compliance': c_rule['complianceType']
-      })
-
 today = date.today().strftime('%Y%m%d')
 
-if len(compliance_list) >= 1:
-  with open(path.join(dirPath, f'{rule}-{today}.csv'), 'w') as csv:
-    # unix dialect = double quote + '\n' line ending
-    w = DictWriter(csv, fieldnames = list(compliance_list[0].keys()), dialect = 'unix')
-    w.writeheader()
-    w.writerows(compliance_list)
+# Cache ResourceCompliance output
+RULE_CACHE = f'/tmp/ruleList-cache-{today}.txt'
+ruleList = []
+
+if path.exists(RULE_CACHE):
+  with open(RULE_CACHE) as f:
+    ruleList = load(f)
+else:
+  ruleList = select_aggregate_resource_config("SELECT accountId, awsRegion, configuration.targetResourceId, configuration.configRuleList.configRuleName, configuration.configRuleList.complianceType WHERE resourceType = 'AWS::Config::ResourceCompliance'")
+
+  with open(RULE_CACHE, 'w') as f:
+    dump(ruleList, f)
+
+for rule in rules:
+  resourceType = ''
+  resourceName = 'resourceName'
+
+  if rule.startswith('acm'):
+    resourceType = 'AWS::ACM::Certificate'
+    resourceName = 'configuration.domainName'
+  elif rule.startswith('alb'):
+    resourceType = 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+  elif rule.startswith('api-gw'):
+    resourceType = 'AWS::ApiGateway::Stage'
+  elif rule.startswith('aurora') or rule.startswith('rds-cluster'):
+    resourceType = 'AWS::RDS::DBCluster'
+  elif 'beanstalk' in rule:
+    resourceType = 'AWS::ElasticBeanstalk::Environment'
+  elif 'cloud-trail' in rule:
+    resourceType = 'AWS::CloudTrail::Trail'
+    resourceName = 'configuration.s3BucketName'
+  elif rule.startswith('cloudfront'):
+    resourceType = "AWS::CloudFront::Distribution' AND configuration.distributionConfig.enabled = 'true"
+    resourceName = 'configuration.domainName'
+  elif 'cmk' in rule:
+    resourceType = "AWS::KMS::Key' AND configuration.enabled = 'true"
+    resourceName = 'configuration.description'
+  elif rule.startswith('codebuild'):
+    resourceType = 'AWS::CodeBuild::Project'
+    resourceName = 'configuration.name'
+  elif rule.startswith('dynamodb'):
+    resourceType = "AWS::DynamoDB::Table' AND configuration.tableStatus = 'ACTIVE"
+    resourceName = 'configuration.tableId'
+  elif rule.startswith('ec2-instance') or rule == 'ec2-imdsv2-check':
+    resourceType = "AWS::EC2::Instance' AND configuration.state.name = 'running"
+    resourceName = 'configuration.vpcId'
+  elif rule == 'ec2-stopped-instance':
+    resourceType = 'AWS::EC2::Instance'
+    resourceName = 'configuration.vpcId'
+  elif rule == 'ec2-managedinstance-association-compliance-status-check':
+    resourceType = 'AWS::SSM::AssociationCompliance'
+    resourceName = 'configuration'
+  elif rule == 'ec2-managedinstance-patch-compliance':
+    resourceType = 'AWS::SSM::PatchCompliance'
+    resourceName = 'configuration'
+  elif rule.startswith('eip'):
+    resourceType = 'AWS::EC2::EIP'
+  elif rule.startswith('elb') or rule.startswith('fms'):
+    resourceType = 'AWS::ElasticLoadBalancing::LoadBalancer'
+    resourceName = 'configuration.vpcid'
+  elif rule == 'encrypted-volumes':
+    resourceType = 'AWS::EC2::Volume'
+    resourceName = 'configuration.snapshotId'
+  elif rule.startswith('iam-policy'):
+    resourceType = 'AWS::IAM::Policy'
+  elif rule.startswith('iam-inline') or rule.startswith('iam-user') or rule.startswith('access-keys'):
+    resourceType = 'AWS::IAM::User'
+  elif rule.startswith('lambda'):
+    resourceType = "AWS::Lambda::Function' AND configuration.state.value = 'Active"
+    resourceName = 'configuration.lastUpdateStatus'
+  elif rule.startswith('rds-snapshot'):
+    resourceType = "AWS::RDS::DBSnapshot' AND configuration.dBInstanceStatus = 'available"
+  elif rule.startswith('rds'):
+    resourceType = "AWS::RDS::DBInstance' AND configuration.dBInstanceStatus = 'available"
+  elif rule.startswith('redshift'):
+    resourceType = 'AWS::Redshift::Cluster'
+    resourceName = 'configuration.dBName'
+  elif rule == 'restricted-ssh' or 'security-group' in rule or 'sg' in rule:
+    resourceType = 'AWS::EC2::SecurityGroup'
+    resourceName = 'configuration.vpcId'
+  elif rule.startswith('subnet'):
+    resourceType = 'AWS::EC2::Subnet'
+    resourceName = 'configuration.vpcId'
+  elif rule == 'service-vpc-endpoint-enabled' or rule == 'vpc-flow-logs-enabled':
+    resourceType = 'AWS::EC2::VPC'
+    resourceName = 'configuration.vpcId'
+  elif rule.startswith('vpc'):
+    resourceType = 'AWS::EC2::NetworkAcl'
+    resourceName = 'configuration.vpcId'
+  elif rule.startswith('s3'):
+    resourceType = 'AWS::S3::Bucket'
+
+  id_name_dict = {
+    # 'resourceId': 'resourceName'
+  }
+
+  resourceList = select_aggregate_resource_config(f"SELECT resourceId, {resourceName} WHERE resourceType = '{resourceType}'")
+  for ele in resourceList:
+    resource = loads(ele)
+    if rule == 'acm-certificate-expiration-check' or rule.startswith('cloudfront'):
+      id_name_dict[resource['resourceId']] = resource['configuration']['domainName']
+    elif 'cloud-trail' in rule:
+      id_name_dict[resource['resourceId']] = resource['configuration']['s3BucketName']
+    elif 'cmk' in rule:
+      id_name_dict[resource['resourceId']] = resource['configuration']['description']
+    elif rule.startswith('codebuild'):
+      id_name_dict[resource['resourceId']] = resource['configuration']['name']
+    elif rule.startswith('dynamodb'):
+      id_name_dict[resource['resourceId']] = resource['configuration']['tableId']
+    elif rule.startswith('ec2-managedinstance'):
+      content_key = 'Association'
+      if rule == 'ec2-managedinstance-patch-compliance':
+        content_key = 'Patch'
+      associations = resource['configuration']['AWS:ComplianceItem']['Content'][content_key]
+      delete_keys = set()
+
+      for key in associations:
+        if associations[key]['Status'] == 'COMPLIANT' or associations[key]['Status'] == '':
+          delete_keys.add(key)
+
+      if len(delete_keys) >= 1:
+        for ele in delete_keys:
+          associations.pop(ele, None)
+      id_name_dict[resource['resourceId']] = dumps(associations)
+    elif rule == 'encrypted-volumes':
+      id_name_dict[resource['resourceId']] = resource['configuration']['snapshotId']
+    elif rule in VPC_RESOURCES:
+      id_name_dict[resource['resourceId']] = resource['configuration']['vpcId']
+    elif rule.startswith('elb') or rule.startswith('fms'):
+      id_name_dict[resource['resourceId']] = resource['configuration']['vpcid']
+    elif rule.startswith('lambda'):
+      id_name_dict[resource['resourceId']] = resource['configuration']['lastUpdateStatus']
+    elif rule.startswith('redshift'):
+      id_name_dict[resource['resourceId']] = resource['configuration']['dBName']
+    else:
+      id_name_dict[resource['resourceId']] = resource['resourceName']
+
+  compliance_list = []
+
+  for result in ruleList:
+    resource = loads(result)
+    id_no = resource['configuration']['targetResourceId']
+
+    if rule in SKIP_RULES:
+      resourceType = 'resourceId'
+      id_name_dict = { id_no: '' }
+
+    for c_rule in resource['configuration']['configRuleList']:
+      if rule in c_rule['configRuleName'] and id_no in id_name_dict:
+        compliance_list.append({
+          'accountId': resource['accountId'],
+          'accountName': ACCOUNT_NAME_DICT[resource['accountId']],
+          'awsRegion': resource['awsRegion'],
+          resourceType: id_no,
+          resourceName: id_name_dict[id_no],
+          'compliance': c_rule['complianceType']
+        })
+
+  if len(compliance_list) >= 1:
+    with open(path.join(dirPath, f'{rule}-{today}.csv'), 'w') as csv:
+      # unix dialect = double quote + '\n' line ending
+      w = DictWriter(csv, fieldnames = list(compliance_list[0].keys()), dialect = 'unix')
+      w.writeheader()
+      w.writerows(compliance_list)
