@@ -2,7 +2,7 @@
 
 # MIT license (c) 2021 Ming Di Leom
 # Download AWS WAF's Web ACLs and convert them into human-readable format.
-# Usage: ./waf-acl.py --profile {profile-name} --directory output-dir --original
+# Usage: ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --directory output-dir --original --wcu
 # Requirements: pip -q install boto3
 
 from argparse import ArgumentParser
@@ -15,8 +15,14 @@ from pathlib import Path
 
 parser = ArgumentParser(description = 'For the provided profile, download all web ACLs in human-readable format.')
 parser.add_argument('--profile', '-p',
-  help = 'AWS profile name. Parsed from ~/.aws/credentials.',
+  help = 'AWS profile name. Parsed from ~/.aws/profile (SSO) or credentials (API key).',
   required = True)
+parser.add_argument('--region', '-r',
+  help = 'AWS region',
+  default = 'us-east-1')
+parser.add_argument('--scope-regional', '-s',
+  help = 'Regional scope',
+  action = 'store_true')
 parser.add_argument('--directory', '-d',
   help = 'Output folder. Exported links will be saved in the current folder if not specified.',
   default = '')
@@ -26,25 +32,29 @@ parser.add_argument('--original', '-a',
 parser.add_argument('--wcu', '-w',
   help = 'Calculate WCU value of each rule.',
   action = 'store_true')
-parser.add_argument('--total-wcu', '-t',
-  help = 'Shows the total WCU of each web ACL.',
-  action = 'store_true')
+# parser.add_argument('--total-wcu', '-t',
+#   help = 'Shows the total WCU of each web ACL.',
+#   action = 'store_true')
 args = parser.parse_args()
 profile = args.profile
-original = args.original
+region = args.region
+scope_regional = args.scope_regional
+scope = 'REGIONAL' if scope_regional == True else 'CLOUDFRONT'
+# CloudFront must specify 'us-east-1' region
+if scope_regional == False:
+  region = 'us-east-1'
 dirPath = args.directory
 Path(dirPath).mkdir(parents = True, exist_ok = True)
+save_original = args.original
 show_wcu = args.wcu
-show_total_wcu = args.total_wcu
+# show_total_wcu = args.total_wcu
 
 today = date.today().strftime('%Y%m%d')
 
 session = boto3.session.Session(profile_name = profile)
-# Cloudfront ACLs uses us-east-1 region
-my_config = Config(region_name = 'us-east-1')
+my_config = Config(region_name = region)
 client = session.client('wafv2', config = my_config)
-# Modify the scope for regional WAF
-web_acls = client.list_web_acls(Scope = 'CLOUDFRONT')['WebACLs']
+web_acls = client.list_web_acls(Scope = scope)['WebACLs']
 
 def byteToString(bts):
   if isinstance(bts, bytes):
@@ -91,7 +101,15 @@ def parse_statement(obj):
       if 'TextTransformations' in obj['ByteMatchStatement']:
         wcu_statement['field'] = field_to_match(obj['ByteMatchStatement']['FieldToMatch'])
     elif first_key_obj == 'IPSetReferenceStatement':
-      search_string = obj['IPSetReferenceStatement']['ARN']
+      ip_set_arn = obj["IPSetReferenceStatement"]["ARN"]
+      ip_set_name = ip_set_arn.split('/')[-2]
+      ip_set_id = ip_set_arn.split('/')[-1]
+      ip_set = client.get_ip_set(
+        Name = ip_set_name,
+        Scope = scope,
+        Id = ip_set_id
+      )
+      search_string = ', '.join(ip_set['IPSet']['Addresses'])
       positional_constraint = 'IPSet'
       wcu_statement['statement'] = 'ipset'
 
@@ -146,9 +164,18 @@ def parse_rule(obj):
       else:
         text = f' {text} {and_or} {rule}'
   elif first_key_obj == 'IPSetReferenceStatement':
-    text = f'IPSet({obj["IPSetReferenceStatement"]["ARN"]})'
+    ip_set_arn = obj["IPSetReferenceStatement"]["ARN"]
+    ip_set_name = ip_set_arn.split('/')[-2]
+    ip_set_id = ip_set_arn.split('/')[-1]
+    ip_set = client.get_ip_set(
+      Name = ip_set_name,
+      Scope = scope,
+      Id = ip_set_id
+    )
+    text = f'IPSet({", ".join(ip_set["IPSet"]["Addresses"])})'
+    wcu_rule.append({ 'statement': 'ipset' })
   else:
-    # unknown rule statement
+    # unknown
     print(first_key_obj)
 
   return {
@@ -168,32 +195,36 @@ wcu_dict = {
   'text_transform': 10
 }
 
-for web_acl in web_acls:
-  web_acl_rule = client.get_web_acl(
-    Name = web_acl['Name'],
-    Scope = 'CLOUDFRONT',
-    Id = web_acl['Id']
-  )
-
-  if original:
-    with open(path.join(dirPath, f'{web_acl["Name"]}-original-{today}.json'), mode = 'w') as f:
-      # response may contain byte data that json.dump() doesn't like, hence byteToString()
-      dump(web_acl_rule['WebACL'], f, indent = 2, default = byteToString)
-
+def parse_web_acl(web_acl_rule):
   rules = []
-  web_acl_wcu = 0
+  # web_acl_wcu = 0
   web_acl_text_transform = set()
-  for rule in web_acl_rule['WebACL']['Rules']:
+  for rule in web_acl_rule:
     out_rule = {
       # Name: "Rule"
       # Action: "Allow|Block"
     }
 
-    out_rule[rule['Name']] = parse_rule(rule['Statement']).strip()
-    out_rule['Action'] = 'Allow' if first_key(rule['Action']) == 'Allow' else 'Block'
+    if 'RuleGroupReferenceStatement' in rule['Statement']:
+      rulegroup_arn = rule['Statement']['RuleGroupReferenceStatement']['ARN']
+      rulegroup_id = rulegroup_arn.split('/')[-1]
+      rulegroup = client.get_rule_group(
+        Name = rule['Name'],
+        Scope = scope,
+        Id = rulegroup_id,
+        ARN = rulegroup_arn
+      )
+      parsed = parse_web_acl(rulegroup['RuleGroup']['Rules'])
+      rules.extend(parsed['rules'])
+      # web_acl_wcu = web_acl_wcu + parsed['web_acl_wcu']
+      continue
+    else:
+      out_rule[rule['Name']] = parse_rule(rule['Statement'])['text']
+      out_rule['Action'] = 'Allow' if first_key(rule['Action']) == 'Allow' else 'Block'
 
     # WCU calculation
-    if show_wcu or show_total_wcu:
+    # if show_wcu or show_total_wcu:
+    if show_wcu:
       statements = parse_rule(rule['Statement'])['wcu_rule']
 
       if len(statements) >= 1:
@@ -203,17 +234,17 @@ for web_acl in web_acls:
         for statement in statements:
           rule_statement = statement['statement']
           if rule_statement == 'ipset' or rule_statement == 'sql' or rule_statement == 'xss':
-            web_acl_wcu = web_acl_wcu + wcu_dict[rule_statement]
+            # web_acl_wcu = web_acl_wcu + wcu_dict[rule_statement]
             rule_wcu = rule_wcu + wcu_dict[rule_statement]
           elif rule_statement == 'string_match':
-            web_acl_wcu = web_acl_wcu + wcu_dict[statement['base']]
+            # web_acl_wcu = web_acl_wcu + wcu_dict[statement['base']]
             rule_wcu = rule_wcu + wcu_dict[statement['base']]
 
           if 'text_transform' in statement:
             text_transform_key = statement['text_transform'] + statement['field']
 
             if text_transform_key not in web_acl_text_transform:
-              web_acl_wcu = web_acl_wcu + wcu_dict['text_transform']
+              # web_acl_wcu = web_acl_wcu + wcu_dict['text_transform']
               web_acl_text_transform.add(text_transform_key)
 
             if text_transform_key not in rule_text_transform:
@@ -225,8 +256,29 @@ for web_acl in web_acls:
 
     rules.append(out_rule)
 
-  with open(path.join(dirPath, f'{web_acl["Name"]}-{today}.json'), mode = 'w') as f:
+  return {
+    'rules': rules,
+    # 'web_acl_wcu': web_acl_wcu
+  }
+
+for web_acl in web_acls:
+  web_acl_rule = client.get_web_acl(
+    Name = web_acl['Name'],
+    Scope = scope,
+    Id = web_acl['Id']
+  )
+
+  parsed = parse_web_acl(web_acl_rule['WebACL']['Rules'])
+  rules = parsed['rules']
+  # web_acl_wcu = parsed['web_acl_wcu']
+
+  if save_original:
+    with open(path.join(dirPath, f'{web_acl["Name"]}-original-{today}.json'), 'w') as f:
+      # response may contain byte data that json.dump() doesn't like, hence byteToString()
+      dump(web_acl_rule['WebACL'], f, indent = 2, default = byteToString)
+
+  with open(path.join(dirPath, f'{web_acl["Name"]}-{today}.json'), 'w') as f:
     dump(rules, f, indent = 2)
 
-  if show_total_wcu:
-    print(f'{web_acl["Name"]} consumes {web_acl_wcu} WCU.')
+  # if show_total_wcu:
+  #   print(f'{web_acl["Name"]} consumes {web_acl_wcu} WCU.')

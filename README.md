@@ -3,14 +3,16 @@
 Each web ACL will be saved to a JSON file named "{web-acl-name}-{YYYYMMDD}.json".
 
 ```
-$ ./waf-acl.py --profile {profile-name} --directory {output-dir} --original --wcu --total-wcu
+$ ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --directory output-dir --original --wcu
 ```
 
 - **profile-name**: The profile name as listed in "~/.aws/credentials".
 - **directory**: Output directory. It will be created if not exist. Defaults to current folder.
+- **region**: Region of web ACL, defaults to "us-east-1".
+- **scope-regional**: Regional-scoped/non-Cloudfront ACL.
 - **original**: Preserve the original ACL after conversion and save it with "-original" suffix.
 - **wcu**: Output Web ACL Capacity Unit (WCU) of each rule
-- **total-wcu**: Output the total WCU of each web ACL
+- **total-wcu** (disabled): Output the total WCU of each web ACL
 
 ## Resource Compliance using AWS Config
 
@@ -21,7 +23,7 @@ Script duration is roughly 1 minute per 1000 rules.
 List of rules across all accounts and regions. Output will be saved to "aws-config-rules.txt".
 
 ```
-$ ./all-rules.py --profile {profile-name} --output {output-dir}
+$ ./all-rules.py --profile profile-name --output output-dir
 ```
 
 ### Resource Compliance
