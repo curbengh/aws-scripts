@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-# MIT license (c) 2021 Ming Di Leom
 # Download AWS WAF's Web ACLs and convert them into human-readable format.
-# Usage: ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --directory output-dir --original --wcu
-# Requirements: pip -q install boto3
+# Usage: ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --directory output-dir --original --wcu --ip-set
 
 from argparse import ArgumentParser
 import boto3
@@ -15,7 +13,7 @@ from pathlib import Path
 
 parser = ArgumentParser(description = 'For the provided profile, download all web ACLs in human-readable format.')
 parser.add_argument('--profile', '-p',
-  help = 'AWS profile name. Parsed from ~/.aws/profile (SSO) or credentials (API key).',
+  help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).',
   required = True)
 parser.add_argument('--region', '-r',
   help = 'AWS region',
@@ -27,7 +25,7 @@ parser.add_argument('--directory', '-d',
   help = 'Output folder. Exported links will be saved in the current folder if not specified.',
   default = '')
 parser.add_argument('--original', '-a',
-  help = 'Also download raw ACLs.',
+  help = 'Also save raw ACLs.',
   action = 'store_true')
 parser.add_argument('--wcu', '-w',
   help = 'Calculate WCU value of each rule.',
@@ -35,6 +33,9 @@ parser.add_argument('--wcu', '-w',
 # parser.add_argument('--total-wcu', '-t',
 #   help = 'Shows the total WCU of each web ACL.',
 #   action = 'store_true')
+parser.add_argument('--ip-set', '-i',
+  help = "Save IP address(es) of an IP set. Defaults to the IP set's name.",
+  action = 'store_true')
 args = parser.parse_args()
 profile = args.profile
 region = args.region
@@ -46,8 +47,11 @@ if scope_regional == False:
 dirPath = args.directory
 Path(dirPath).mkdir(parents = True, exist_ok = True)
 save_original = args.original
+if save_original:
+  Path(path.join(dirPath, 'original')).mkdir(parents = True, exist_ok = True)
 show_wcu = args.wcu
 # show_total_wcu = args.total_wcu
+show_ip_set = args.ip_set
 
 today = date.today().strftime('%Y%m%d')
 
@@ -75,7 +79,7 @@ def parse_statement(obj):
   text = first_key_obj
   wcu_statement = {}
 
-  if first_key_obj == 'NotStatement' or first_key_obj == 'ByteMatchStatement':
+  if not (first_key_obj == 'SqliMatchStatement' or first_key_obj == 'XssMatchStatement'):
     not_prefix = ''
     search_string = ''
     field_match = ''
@@ -101,21 +105,29 @@ def parse_statement(obj):
       if 'TextTransformations' in obj['ByteMatchStatement']:
         wcu_statement['field'] = field_to_match(obj['ByteMatchStatement']['FieldToMatch'])
     elif first_key_obj == 'IPSetReferenceStatement':
-      ip_set_arn = obj["IPSetReferenceStatement"]["ARN"]
+      ip_set_arn = obj['IPSetReferenceStatement']['ARN']
       ip_set_name = ip_set_arn.split('/')[-2]
       ip_set_id = ip_set_arn.split('/')[-1]
-      ip_set = client.get_ip_set(
-        Name = ip_set_name,
-        Scope = scope,
-        Id = ip_set_id
-      )
-      search_string = ', '.join(ip_set['IPSet']['Addresses'])
+      search_string = ip_set_name
+
+      if show_ip_set:
+        ip_set = client.get_ip_set(
+          Name = ip_set_name,
+          Scope = scope,
+          Id = ip_set_id
+        )
+        search_string = ', '.join(ip_set['IPSet']['Addresses'])
+
       positional_constraint = 'IPSet'
       wcu_statement['statement'] = 'ipset'
+    elif first_key_obj == 'GeoMatchStatement':
+      search_string = ', '.join(obj['GeoMatchStatement']['CountryCodes'])
+      positional_constraint = 'Geomatch'
+      wcu_statement['statement'] = 'geomatch'
 
     separator = '=' if len(field_match) >= 1 else ''
     text = f'{not_prefix}{field_match}{separator}{positional_constraint}({search_string})'
-  elif first_key_obj == 'SqliMatchStatement' or first_key_obj == 'XssMatchStatement':
+  else:
     text = f'{first_key_obj}({first_key(obj[first_key_obj]["FieldToMatch"])})'
     if first_key_obj == 'SqliMatchStatement':
       wcu_statement['statement'] = 'sql'
@@ -140,6 +152,12 @@ def parse_rule(obj):
   text = ''
   first_key_obj = first_key(obj)
   wcu_rule = []
+  not_prefix = ''
+
+  if first_key_obj == 'NotStatement':
+    not_prefix = 'NOT '
+    obj = obj['NotStatement']['Statement']
+    first_key_obj = first_key(obj)
 
   if first_key_obj == 'AndStatement' or first_key_obj == 'OrStatement':
     and_or = 'AND' if first_key_obj == 'AndStatement' else 'OR'
@@ -163,20 +181,10 @@ def parse_rule(obj):
         text = f' {text} {and_or} {rule}{close_paren}'
       else:
         text = f' {text} {and_or} {rule}'
-  elif first_key_obj == 'IPSetReferenceStatement':
-    ip_set_arn = obj["IPSetReferenceStatement"]["ARN"]
-    ip_set_name = ip_set_arn.split('/')[-2]
-    ip_set_id = ip_set_arn.split('/')[-1]
-    ip_set = client.get_ip_set(
-      Name = ip_set_name,
-      Scope = scope,
-      Id = ip_set_id
-    )
-    text = f'IPSet({", ".join(ip_set["IPSet"]["Addresses"])})'
-    wcu_rule.append({ 'statement': 'ipset' })
   else:
-    # unknown
-    print(first_key_obj)
+    statement = parse_statement(obj)
+    text = statement['text']
+    wcu_rule.append(statement['wcu_statement'])
 
   return {
     'text': text.strip(),
@@ -190,6 +198,7 @@ wcu_dict = {
   'ends_with': 2,
   'contains': 10,
   'contains_word': 10,
+  'geomatch': 1,
   'sql': 20,
   'xss': 40,
   'text_transform': 10
@@ -239,6 +248,8 @@ def parse_web_acl(web_acl_rule):
           elif rule_statement == 'string_match':
             # web_acl_wcu = web_acl_wcu + wcu_dict[statement['base']]
             rule_wcu = rule_wcu + wcu_dict[statement['base']]
+          elif rule_statement == 'geomatch':
+            rule_wcu = rule_wcu + wcu_dict[rule_statement] + (wcu_dict[rule_statement] * out_rule[rule['Name']].count(','))
 
           if 'text_transform' in statement:
             text_transform_key = statement['text_transform'] + statement['field']
@@ -273,7 +284,7 @@ for web_acl in web_acls:
   # web_acl_wcu = parsed['web_acl_wcu']
 
   if save_original:
-    with open(path.join(dirPath, f'{web_acl["Name"]}-original-{today}.json'), 'w') as f:
+    with open(path.join(dirPath, 'original', f'{web_acl["Name"]}-original-{today}.json'), 'w') as f:
       # response may contain byte data that json.dump() doesn't like, hence byteToString()
       dump(web_acl_rule['WebACL'], f, indent = 2, default = byteToString)
 

@@ -3,7 +3,7 @@
 Each web ACL will be saved to a JSON file named "{web-acl-name}-{YYYYMMDD}.json".
 
 ```
-$ ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --directory output-dir --original --wcu
+$ ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --directory output-dir --original --wcu --ip-set
 ```
 
 - **profile-name**: The profile name as listed in "~/.aws/credentials".
@@ -13,6 +13,7 @@ $ ./waf-acl.py --profile profile-name --region {us-east-1} --scope-regional --di
 - **original**: Preserve the original ACL after conversion and save it with "-original" suffix.
 - **wcu**: Output Web ACL Capacity Unit (WCU) of each rule
 - **total-wcu** (disabled): Output the total WCU of each web ACL
+- **ip-set**: Save IP address(es) of an IP set. Defaults to the IP set's name.
 
 ## Resource Compliance using AWS Config
 
