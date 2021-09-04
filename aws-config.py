@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Usage: ./aws-config.py --profile {profile-name} --rules {space separated rules} --output output-dir
-# Refer to README.md for more details
 
 from argparse import ArgumentParser
 import boto3

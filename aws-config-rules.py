@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Download a list of resource compliance rules
 # Usage: ./aws-config-ruless.py --profile profile-name --output output-dir
-# Requirements: pip3 -q install boto3
-# Refer to README.md for more details
 
 from argparse import ArgumentParser
 import boto3
