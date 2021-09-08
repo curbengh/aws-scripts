@@ -372,6 +372,6 @@ for rule in rules:
   if len(compliance_list) >= 1:
     with open(path.join(dirPath, f'{rule}-{today}.csv'), 'w') as csv:
       # unix dialect = double quote + '\n' line ending
-      w = DictWriter(csv, fieldnames = list(compliance_list[0].keys()), dialect = 'unix')
+      w = DictWriter(csv, fieldnames = list(compliance_list[0]), dialect = 'unix')
       w.writeheader()
       w.writerows(compliance_list)

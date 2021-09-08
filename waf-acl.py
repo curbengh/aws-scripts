@@ -67,7 +67,7 @@ def byteToString(bts):
 
 # Parse first key of a dictionary
 def first_key(obj):
-  return list(obj.keys())[0]
+  return list(obj)[0]
 
 def field_to_match(obj):
   return first_key(obj).lower() \
