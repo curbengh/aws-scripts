@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Usage: ./aws-config.py --profile {profile-name} --rules {space separated rules} --output output-dir
+# Usage: ./aws-config.py --profile profile-name --rules space separated rules --output output-dir
 
 from argparse import ArgumentParser
 import boto3
@@ -169,6 +169,7 @@ SKIP_RULES = [
 
 parser = ArgumentParser(description = 'AWS Resource Compliance')
 parser.add_argument('--profile', '-p',
+  default = 'security',
   help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).')
 parser.add_argument('--rules', '-r',
   choices = VALID_RULES,
@@ -226,11 +227,9 @@ else:
 
 for rule in rules:
   resourceType = ''
-  resourceName = 'resourceName'
 
   if rule.startswith('acm'):
     resourceType = 'AWS::ACM::Certificate'
-    resourceName = 'configuration.domainName'
   elif rule.startswith('alb'):
     resourceType = 'AWS::ElasticLoadBalancingV2::LoadBalancer'
   elif rule.startswith('api-gw'):
@@ -241,90 +240,86 @@ for rule in rules:
     resourceType = 'AWS::ElasticBeanstalk::Environment'
   elif 'cloud-trail' in rule:
     resourceType = 'AWS::CloudTrail::Trail'
-    resourceName = 'configuration.s3BucketName'
   elif rule.startswith('cloudfront'):
     resourceType = "AWS::CloudFront::Distribution' AND configuration.distributionConfig.enabled = 'true"
-    resourceName = 'configuration.domainName'
   elif 'cmk' in rule:
     resourceType = "AWS::KMS::Key' AND configuration.enabled = 'true"
-    resourceName = 'configuration.description'
   elif rule.startswith('codebuild'):
     resourceType = 'AWS::CodeBuild::Project'
-    resourceName = 'configuration.name'
   elif rule.startswith('dynamodb'):
     resourceType = "AWS::DynamoDB::Table' AND configuration.tableStatus = 'ACTIVE"
-    resourceName = 'configuration.tableId'
   elif rule.startswith('ec2-instance') or rule == 'ec2-imdsv2-check':
     resourceType = "AWS::EC2::Instance' AND configuration.state.name = 'running"
-    resourceName = 'configuration.vpcId'
   elif rule == 'ec2-stopped-instance':
     resourceType = 'AWS::EC2::Instance'
-    resourceName = 'configuration.vpcId'
   elif rule == 'ec2-managedinstance-association-compliance-status-check':
     resourceType = 'AWS::SSM::AssociationCompliance'
-    resourceName = 'configuration'
   elif rule == 'ec2-managedinstance-patch-compliance':
     resourceType = 'AWS::SSM::PatchCompliance'
-    resourceName = 'configuration'
   elif rule.startswith('eip'):
     resourceType = 'AWS::EC2::EIP'
   elif rule.startswith('elb') or rule.startswith('fms'):
     resourceType = 'AWS::ElasticLoadBalancing::LoadBalancer'
-    resourceName = 'configuration.vpcid'
   elif rule == 'encrypted-volumes':
     resourceType = 'AWS::EC2::Volume'
-    resourceName = 'configuration.snapshotId'
   elif rule.startswith('iam-policy'):
     resourceType = 'AWS::IAM::Policy'
   elif rule.startswith('iam-inline') or rule.startswith('iam-user') or rule.startswith('access-keys'):
     resourceType = 'AWS::IAM::User'
   elif rule.startswith('lambda'):
     resourceType = "AWS::Lambda::Function' AND configuration.state.value = 'Active"
-    resourceName = 'configuration.lastUpdateStatus'
   elif rule.startswith('rds-snapshot'):
     resourceType = "AWS::RDS::DBSnapshot' AND configuration.dBInstanceStatus = 'available"
   elif rule.startswith('rds'):
     resourceType = "AWS::RDS::DBInstance' AND configuration.dBInstanceStatus = 'available"
   elif rule.startswith('redshift'):
     resourceType = 'AWS::Redshift::Cluster'
-    resourceName = 'configuration.dBName'
   elif rule == 'restricted-ssh' or 'security-group' in rule or 'sg' in rule:
     resourceType = 'AWS::EC2::SecurityGroup'
-    resourceName = 'configuration.vpcId'
   elif rule.startswith('subnet'):
     resourceType = 'AWS::EC2::Subnet'
-    resourceName = 'configuration.vpcId'
   elif rule == 'service-vpc-endpoint-enabled' or rule == 'vpc-flow-logs-enabled':
     resourceType = 'AWS::EC2::VPC'
-    resourceName = 'configuration.vpcId'
   elif rule.startswith('vpc'):
     resourceType = 'AWS::EC2::NetworkAcl'
-    resourceName = 'configuration.vpcId'
   elif rule.startswith('s3'):
     resourceType = 'AWS::S3::Bucket'
 
+  # List all ALBs
   id_name_dict = {
     # 'resourceId': 'resourceName'
   }
 
-  resourceList = select_aggregate_resource_config(f"SELECT resourceId, {resourceName} WHERE resourceType = '{resourceType}'")
+  resourceList = select_aggregate_resource_config(f"SELECT resourceId, resourceName, configuration WHERE resourceType = '{resourceType}'")
+  resourceInfo = 'resourceName'
+
   for ele in resourceList:
     resource = loads(ele)
+    configuration = resource['configuration']
+
     if rule == 'acm-certificate-expiration-check' or rule.startswith('cloudfront'):
-      id_name_dict[resource['resourceId']] = resource['configuration']['domainName']
+      id_name_dict[resource['resourceId']] = configuration['domainName']
+      resourceInfo = 'domainName'
+    elif rule.startswith('alb'):
+      id_name_dict[resource['resourceId']] = configuration.get('dNSName', '')
+      resourceInfo = 'dNSName'
     elif 'cloud-trail' in rule:
-      id_name_dict[resource['resourceId']] = resource['configuration']['s3BucketName']
+      id_name_dict[resource['resourceId']] = configuration['s3BucketName']
+      resourceInfo = 's3BucketName'
     elif 'cmk' in rule:
-      id_name_dict[resource['resourceId']] = resource['configuration']['description']
+      id_name_dict[resource['resourceId']] = configuration['description']
+      resourceInfo = 'description'
     elif rule.startswith('codebuild'):
-      id_name_dict[resource['resourceId']] = resource['configuration']['name']
+      id_name_dict[resource['resourceId']] = configuration['name']
+      resourceInfo = 'name'
     elif rule.startswith('dynamodb'):
-      id_name_dict[resource['resourceId']] = resource['configuration']['tableId']
+      id_name_dict[resource['resourceId']] = configuration['tableId']
+      resourceInfo = 'tableId'
     elif rule.startswith('ec2-managedinstance'):
       content_key = 'Association'
       if rule == 'ec2-managedinstance-patch-compliance':
         content_key = 'Patch'
-      associations = resource['configuration']['AWS:ComplianceItem']['Content'][content_key]
+      associations = configuration['AWS:ComplianceItem']['Content'][content_key]
       delete_keys = set()
 
       for key in associations:
@@ -335,16 +330,28 @@ for rule in rules:
         for ele in delete_keys:
           associations.pop(ele, None)
       id_name_dict[resource['resourceId']] = dumps(associations)
+      resourceInfo = 'ComplianceItem'
     elif rule == 'encrypted-volumes':
-      id_name_dict[resource['resourceId']] = resource['configuration']['snapshotId']
+      id_name_dict[resource['resourceId']] = configuration['snapshotId']
+      resourceInfo = 'snapshotId'
     elif rule in VPC_RESOURCES:
-      id_name_dict[resource['resourceId']] = resource['configuration']['vpcId']
+      id_name_dict[resource['resourceId']] = configuration['vpcId']
+      resourceInfo = 'vpcId'
     elif rule.startswith('elb') or rule.startswith('fms'):
-      id_name_dict[resource['resourceId']] = resource['configuration']['vpcid']
+      id_name_dict[resource['resourceId']] = configuration.get('dnsname', '')
+      resourceInfo = 'dnsname'
     elif rule.startswith('lambda'):
-      id_name_dict[resource['resourceId']] = resource['configuration']['lastUpdateStatus']
+      id_name_dict[resource['resourceId']] = ', '.join(configuration.get('vpcConfig', {}).get('securityGroupIds',[]))
+      resourceInfo = 'securityGroupIds'
+    elif rule.startswith('rds'):
+      id_name_dict[resource['resourceId']] = configuration.get('dBInstanceIdentifier', '')
+      resourceInfo = 'dBInstanceIdentifier'
     elif rule.startswith('redshift'):
-      id_name_dict[resource['resourceId']] = resource['configuration']['dBName']
+      id_name_dict[resource['resourceId']] = configuration['dBName']
+      resourceInfo = 'dBName'
+    elif rule.startswith('s3'):
+      id_name_dict[resource['resourceId']] = configuration['creationDate']
+      resourceInfo = 'creationDate'
     else:
       id_name_dict[resource['resourceId']] = resource['resourceName']
 
@@ -352,20 +359,21 @@ for rule in rules:
 
   for result in ruleList:
     resource = loads(result)
-    id_no = resource['configuration']['targetResourceId']
+    configuration = resource['configuration']
+    id_no = configuration['targetResourceId']
 
     if rule in SKIP_RULES:
       resourceType = 'resourceId'
       id_name_dict = { id_no: '' }
 
-    for c_rule in resource['configuration']['configRuleList']:
+    for c_rule in configuration['configRuleList']:
       if rule in c_rule['configRuleName'] and id_no in id_name_dict:
         compliance_list.append({
           'accountId': resource['accountId'],
           'accountName': ACCOUNT_NAME_DICT[resource['accountId']],
           'awsRegion': resource['awsRegion'],
           resourceType: id_no,
-          resourceName: id_name_dict[id_no],
+          resourceInfo: id_name_dict[id_no],
           'compliance': c_rule['complianceType']
         })
 
