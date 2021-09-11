@@ -41,7 +41,7 @@ Output will be saved to "{rule-name}-{YYYYMMDD}.csv" with the following columns:
 - compliance (i.e. `COMPLIANT` or `NON_COMPLIANT`)
 
 ```
-$ ./aws-config.py --profile {profile-name} --rules {space separated rules} --output {output-dir}
+$ ./aws-config.py --profile profile-name --rules space separated rules --output output-dir
 ```
 
 Supported Rules:
