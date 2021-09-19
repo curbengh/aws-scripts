@@ -180,7 +180,7 @@ parser.add_argument('--output', '-o',
   default = '',
   help = 'Output directory of CSV.')
 parser.add_argument('--summary', '-s',
-  help = 'Save all links to a newline-separated links.',
+  help = 'Query all rules and save the outputs into a CSV and XLSX.',
   action = 'store_true')
 args = parser.parse_args()
 profile = args.profile
