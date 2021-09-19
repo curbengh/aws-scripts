@@ -41,8 +41,10 @@ Output will be saved to "{rule-name}-{YYYYMMDD}.csv" with the following columns:
 - compliance (i.e. `COMPLIANT` or `NON_COMPLIANT`)
 
 ```
-$ ./aws-config.py --profile profile-name --rules space separated rules --output output-dir
+$ ./aws-config.py --profile profile-name --rules space separated rules --output output-dir --summary
 ```
+
+- **summary**: Save output of all supported rules (see below) into CSV and XLSX files.
 
 Supported Rules:
 - [access-keys-rotated](https://docs.aws.amazon.com/config/latest/developerguide/access-keys-rotated.html)

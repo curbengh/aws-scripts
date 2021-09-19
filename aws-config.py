@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Usage: ./aws-config.py --profile profile-name --rules space separated rules --output output-dir
+# Usage: ./aws-config.py --profile profile-name --rules space separated rules --output output-dir --summary
 
 from argparse import ArgumentParser
 import boto3
@@ -10,6 +10,7 @@ from datetime import date
 from json import dump, dumps, load, loads
 from os import path
 from pathlib import Path
+from xlsxwriter.workbook import Workbook
 
 VALID_RULES = [
   'access-keys-rotated',
@@ -169,21 +170,35 @@ SKIP_RULES = [
 
 parser = ArgumentParser(description = 'AWS Resource Compliance')
 parser.add_argument('--profile', '-p',
-  default = 'security',
+  required = True,
   help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).')
 parser.add_argument('--rules', '-r',
   choices = VALID_RULES,
   help = 'Config Rule',
-  required = True,
   nargs = '+')
 parser.add_argument('--output', '-o',
   default = '',
   help = 'Output directory of CSV.')
+parser.add_argument('--summary', '-s',
+  help = 'Save all links to a newline-separated links.',
+  action = 'store_true')
 args = parser.parse_args()
 profile = args.profile
 rules = args.rules
-dirPath = args.output
-Path(dirPath).mkdir(parents = True, exist_ok = True)
+dir_path = args.output
+Path(dir_path).mkdir(parents = True, exist_ok = True)
+is_summary = args.summary
+if is_summary:
+  rules = VALID_RULES
+else:
+  while rules is None or len(rules) == 0:
+    rules = input('Enter space-separated Config rule(s) to query: ')
+    if len(rules) >= 1:
+      rules = rules.split(' ')
+      for rule in rules:
+        if rule not in VALID_RULES:
+          print(f'"{rule}" is not a valid input.')
+          rules = []
 
 session = boto3.session.Session(profile_name = profile)
 # use 'us-east-1' to query across multiple accounts and regions
@@ -215,6 +230,7 @@ today = date.today().strftime('%Y%m%d')
 # Cache ResourceCompliance output
 RULE_CACHE = f'/tmp/ruleList-cache-{today}.txt'
 ruleList = []
+summary_list = []
 
 if path.exists(RULE_CACHE):
   with open(RULE_CACHE) as f:
@@ -298,7 +314,7 @@ for rule in rules:
     configuration = resource['configuration']
 
     if rule == 'acm-certificate-expiration-check' or rule.startswith('cloudfront'):
-      id_name_dict[resource['resourceId']] = configuration['domainName']
+      id_name_dict[resource['resourceId']] = configuration.get('domainName', '')
       resourceInfo = 'domainName'
     elif rule.startswith('alb'):
       id_name_dict[resource['resourceId']] = configuration.get('dNSName', '')
@@ -372,14 +388,63 @@ for rule in rules:
           'accountId': resource['accountId'],
           'accountName': ACCOUNT_NAME_DICT[resource['accountId']],
           'awsRegion': resource['awsRegion'],
-          resourceType: id_no,
-          resourceInfo: id_name_dict[id_no],
+          'resourceId': id_no,
+          'resourceInfo': id_name_dict[id_no],
           'compliance': c_rule['complianceType']
         })
 
   if len(compliance_list) >= 1:
-    with open(path.join(dirPath, f'{rule}-{today}.csv'), 'w') as csv:
-      # unix dialect = double quote + '\n' line ending
-      w = DictWriter(csv, fieldnames = list(compliance_list[0]), dialect = 'unix')
-      w.writeheader()
-      w.writerows(compliance_list)
+    if not is_summary:
+      with open(path.join(dir_path, f'{rule}-{today}.csv'), 'w') as csv:
+        # unix dialect = double quote + '\n' line ending
+        w = DictWriter(csv, fieldnames = list(compliance_list[0]), dialect = 'unix')
+        w.writeheader()
+        w.writerows(compliance_list)
+    else:
+      for ele in compliance_list:
+        summary_list.append({
+          'rule': rule,
+          'more info': f'https://docs.aws.amazon.com/config/latest/developerguide/{rule}.html',
+          **ele
+        })
+
+summary_csv = path.join(dir_path, f'summary-compliance-{today}.csv')
+summary_xlsx = path.join(dir_path, f'summary-compliance-{today}.xlsx')
+
+if len(summary_list) >= 1:
+  with open(summary_csv, 'w') as f:
+    w = DictWriter(f, fieldnames = list(summary_list[0]), dialect = 'unix')
+    w.writeheader()
+    w.writerows(summary_list)
+
+  workbook = Workbook(summary_xlsx)
+  worksheet = workbook.add_worksheet()
+
+  # Make the columns wider
+  worksheet.set_column(0, 0, 26)
+  worksheet.set_column(2, 3, 14)
+  worksheet.set_column(4, 5, 20)
+  worksheet.set_column(6, 6, 16)
+
+  # Bold header row
+  worksheet.set_row(0, None, workbook.add_format({ 'bold': 1 }))
+
+  n_row = 0
+  n_col = 0
+
+  for r, row in enumerate(summary_list):
+    for c, col in enumerate(row):
+      worksheet.write(r + 1, c, row[col])
+      if r == 0:
+        # header row
+        worksheet.write(0, c, col)
+        n_col += 1
+    n_row += 1
+    # Hide row with COMPLIANT
+    if row['compliance'] == 'COMPLIANT':
+      worksheet.set_row(r + 1, options = { 'hidden': True })
+
+  worksheet.autofilter(0, 0, n_row - 1, n_col - 1)
+  worksheet.filter_column_list(6, ['NON_COMPLIANT', 'Blanks']) # 7th/G column is "compliance"
+
+  workbook.close()
