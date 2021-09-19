@@ -21,7 +21,7 @@ Script duration is roughly 1 minute per 1000 rules.
 
 ### List of resource compliance rules
 
-List of rules across all accounts and regions. Output will be saved to "aws-config-rules.txt".
+List deployed Config rules across all accounts and regions. Output will be saved to "aws-config-rules.txt".
 
 ```
 $ ./all-rules.py --profile profile-name --output output-dir

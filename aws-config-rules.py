@@ -12,7 +12,7 @@ from json import loads
 from os import path
 from pathlib import Path
 
-parser = ArgumentParser(description = 'For the provided profile, download all web ACLs.')
+parser = ArgumentParser(description = 'List Config rules across all accounts and regions.')
 parser.add_argument('--profile', '-p',
   help = 'AWS profile name. Parsed from ~/.aws/credentials.')
 parser.add_argument('--output', '-o',
