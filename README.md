@@ -148,3 +148,19 @@ Supported Rules:
 - [vpc-network-acl-unused-check](https://docs.aws.amazon.com/config/latest/developerguide/vpc-network-acl-unused-check.html)
 - [vpc-sg-open-only-to-authorized-ports](https://docs.aws.amazon.com/config/latest/developerguide/vpc-sg-open-only-to-authorized-ports.html)
 - [vpc-sg-restricted-common-ports](https://docs.aws.amazon.com/config/latest/developerguide/vpc-sg-restricted-common-ports.html)
+
+### Patch Compliance
+
+List all missing patches identified by the [SSM](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
+
+Output will be saved to "SSM-patch-compliance-YYYYMMDD.csv" and "SSM-patch-compliance-YYYYMMDD.xlsx"" with the following columns:
+
+- ACCOUNT ID
+- ACCOUNT (_see `ACC_NAME_DICT` constant to configure_)
+- REGION
+- INSTANCE ID (e.g. EC2 instance ID)
+- MISSING PATCHES (newline separated)
+
+```
+$ ./ssm-patch-compliance.py --profile profile-name --region {us-east-1} --output output-dir
+```

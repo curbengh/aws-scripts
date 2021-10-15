@@ -15,6 +15,7 @@ from pathlib import Path
 
 parser = ArgumentParser(description = 'List Config rules across all accounts and regions.')
 parser.add_argument('--profile', '-p',
+  required = True,
   help = 'AWS profile name. Parsed from ~/.aws/credentials.')
 parser.add_argument('--region', '-r',
   default = 'us-east-1',
