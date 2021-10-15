@@ -24,7 +24,7 @@ Script duration is roughly 1 minute per 1000 rules.
 List deployed Config rules across all accounts and regions. Output will be saved to "aws-config-rules.txt".
 
 ```
-$ ./all-rules.py --profile profile-name --output output-dir
+$ ./all-rules.py --profile profile-name --region {us-east-1} --output output-dir
 ```
 
 ### Resource Compliance
@@ -41,7 +41,7 @@ Output will be saved to "{rule-name}-{YYYYMMDD}.csv" with the following columns:
 - compliance (i.e. `COMPLIANT` or `NON_COMPLIANT`)
 
 ```
-$ ./aws-config.py --profile profile-name --rules space separated rules --output output-dir --summary
+$ ./aws-config.py --profile profile-name --region {us-east-1} --rules space separated rules --output output-dir --summary
 ```
 
 - **summary**: Save output of all supported rules (see below) into CSV and XLSX files.

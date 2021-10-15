@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
-# Usage: ./aws-config.py --profile profile-name --rules space separated rules --output output-dir --summary
+# Usage: ./aws-config.py --profile profile-name --region {us-east-1} --rules space separated rules --output output-dir --summary
 
 from argparse import ArgumentParser
 import boto3
 from botocore.config import Config
 from csv import DictWriter
 from datetime import date
+from itertools import count
 from json import dump, dumps, load, loads
 from os import path
 from pathlib import Path
@@ -172,6 +173,9 @@ parser = ArgumentParser(description = 'AWS Resource Compliance')
 parser.add_argument('--profile', '-p',
   required = True,
   help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).')
+parser.add_argument('--region', '-r',
+  default = 'us-east-1',
+  help = 'AWS Region of Config Aggregator.')
 parser.add_argument('--rules', '-r',
   choices = VALID_RULES,
   help = 'Config Rule',
@@ -184,6 +188,7 @@ parser.add_argument('--summary', '-s',
   action = 'store_true')
 args = parser.parse_args()
 profile = args.profile
+region = args.region
 rules = args.rules
 dir_path = args.output
 Path(dir_path).mkdir(parents = True, exist_ok = True)
@@ -201,29 +206,23 @@ else:
           rules = []
 
 session = boto3.session.Session(profile_name = profile)
-# use 'us-east-1' to query across multiple accounts and regions
-my_config = Config(region_name = 'us-east-1')
-client = session.client('config', config = my_config)
+client = session.client('config', config = my_config = Config(region_name = region))
 
 def select_aggregate_resource_config(Expression):
-  response = client.select_aggregate_resource_config(
-    Expression = Expression,
-    ConfigurationAggregatorName = 'OrganizationConfigAggregator',
-  )
-  results = response['Results']
-
-  while True:
-    if 'NextToken' in response:
-      response = client.select_aggregate_resource_config(
-        Expression = Expression,
-        ConfigurationAggregatorName = 'OrganizationConfigAggregator',
-        NextToken = response['NextToken']
-      )
+  results = []
+  response = {}
+  for i in count():
+    params = {
+      'Expression': Expression,
+      'ConfigurationAggregatorName': 'OrganizationConfigAggregator'
+    }
+    if i == 0 or 'NextToken' in response:
+      if 'NextToken' in response:
+        params['NextToken'] = response['NextToken']
+      response = client.select_aggregate_resource_config(**params)
       results.extend(response['Results'])
     else:
-      break
-
-  return results
+      return results
 
 today = date.today().strftime('%Y%m%d')
 
