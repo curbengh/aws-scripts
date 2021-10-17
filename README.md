@@ -144,6 +144,7 @@ Supported Rules:
 - [sns-encrypted-kms](https://docs.aws.amazon.com/config/latest/developerguide/sns-encrypted-kms.html)
 - [subnet-auto-assign-public-ip-disabled](https://docs.aws.amazon.com/config/latest/developerguide/subnet-auto-assign-public-ip-disabled.html)
 - [vpc-default-security-group-closed](https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-group-closed.html)
+  * Use [this script](#default-security-groups-compliance) to fix.
 - [vpc-flow-logs-enabled](https://docs.aws.amazon.com/config/latest/developerguide/vpc-flow-logs-enabled.html)
 - [vpc-network-acl-unused-check](https://docs.aws.amazon.com/config/latest/developerguide/vpc-network-acl-unused-check.html)
 - [vpc-sg-open-only-to-authorized-ports](https://docs.aws.amazon.com/config/latest/developerguide/vpc-sg-open-only-to-authorized-ports.html)
@@ -164,3 +165,14 @@ Output will be saved to "SSM-patch-compliance-YYYYMMDD.csv" and "SSM-patch-compl
 ```
 $ ./ssm-patch-compliance.py --profile profile-name --region {us-east-1} --output output-dir
 ```
+
+### Default Security Groups' Compliance
+
+Checks that the default security group of any Amazon Virtual Private Cloud (VPC) does not allow inbound or outbound traffic, based on [vpc-default-security-group-closed](https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-group-closed.html) rule. If found, all rules will be removed from those security groups. By default, rules will be only removed from security groups that are _not_ attached to any [ENI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html), unless `--migrate` option is explicitly enabled.
+
+```
+./vpc-default-security-group-closed.py --profile profile-name --region region-name --migrate --eni-attachment
+```
+
+- **migrate**: Migrate ENI-attached non-compliant default security groups to custom security groups and then remove all rules from the default security groups. Disabled by default.
+- **eni-attachment**: Export a list of non-compliant default security groups to a CSV. No changes will be made if enabled.
