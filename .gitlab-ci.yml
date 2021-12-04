@@ -1,0 +1,21 @@
+image: python:latest
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - .venv/
+
+before_script:
+  - python -V
+  - python -m venv .venv
+  - source .venv/bin/activate
+  - pip install -r requirements-dev.txt
+
+lint:
+  stage: test
+
+  script:
+    - pylint $(find -type f -name "*.py" ! -path "**/.venv/**")
