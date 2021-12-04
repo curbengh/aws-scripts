@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 '''
 ./vpc-default-security-group-closed.py --accounts {[aws-accounts]} --profile profile-name --region {us-east-1} --remediate --output output-dir

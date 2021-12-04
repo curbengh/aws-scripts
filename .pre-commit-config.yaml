@@ -1,0 +1,39 @@
+repos:
+- repo: local
+  hooks:
+    - id: standard-python-shebang
+      name: Standard python shebang
+      entry: sed
+      language: system
+      types: [python]
+      args:
+        [
+          "-i", # modify in-place
+          "-E", # extended regex
+          "s|^#\\!.*|#\\!/usr/bin/env python|"
+        ]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: 'v4.0.1'
+  hooks:
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+- repo: https://github.com/PyCQA/isort
+  rev: '5.10.1'
+  hooks:
+    - id: isort
+      types: [python]
+      args:
+        [
+          "." # sort all Python files recursively
+        ]
+- repo: https://github.com/PyCQA/pylint
+  rev: 'v2.12.1'
+  hooks:
+    - id: pylint
+      language: system
+      types: [python]
+      args:
+        [
+          "-rn", # Only display messages
+          "-sn", # Don't display the score
+        ]

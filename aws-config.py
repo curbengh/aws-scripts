@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 
-# Usage: ./aws-config.py --profile profile-name --region {us-east-1} --rules space separated rules --output output-dir --summary
+'''
+Usage: ./aws-config.py --profile profile-name --region {us-east-1} --rules space separated rules --output output-dir --summary
+'''
 
-from argparse import ArgumentParser
-import boto3
-from botocore.config import Config
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from csv import DictWriter
 from datetime import date
 from itertools import count
 from json import dump, dumps, load, loads
 from os import path
 from pathlib import Path
+
+import boto3
 from xlsxwriter.workbook import Workbook
 
 VALID_RULES = [
@@ -169,13 +171,17 @@ SKIP_RULES = [
   'sqs-queue-encrypted'
 ]
 
-parser = ArgumentParser(description = 'AWS Resource Compliance')
+parser = ArgumentParser(
+  description = 'AWS Resource Compliance',
+  formatter_class = ArgumentDefaultsHelpFormatter)
 parser.add_argument('--profile', '-p',
   required = True,
-  help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).')
+  help = 'AWS profile name. '
+    'Parsed from ~/.aws/config (SSO) or credentials (API key). '
+    'Corresponds to the account where Config is deployed.')
 parser.add_argument('--region', '-r',
   default = 'us-east-1',
-  help = 'AWS Region of Config Aggregator.')
+  help = 'AWS region where Config is deployed.')
 parser.add_argument('--rules', '-r',
   choices = VALID_RULES,
   help = 'Config Rule',
@@ -205,15 +211,16 @@ else:
           print(f'"{rule}" is not a valid input.')
           rules = []
 
-session = boto3.session.Session(profile_name = profile)
-client = session.client('config', config = my_config = Config(region_name = region))
+session = boto3.session.Session(profile_name = profile, region_name = region)
+client = session.client('config')
 
-def select_aggregate_resource_config(Expression):
+def select_aggregate_resource_config(expression):
+  '''Run Config (SQL) query specified by "expression" argument'''
   results = []
   response = {}
   for i in count():
     params = {
-      'Expression': Expression,
+      'Expression': expression,
       'ConfigurationAggregatorName': 'OrganizationConfigAggregator'
     }
     if i == 0 or 'NextToken' in response:
@@ -222,23 +229,30 @@ def select_aggregate_resource_config(Expression):
       response = client.select_aggregate_resource_config(**params)
       results.extend(response['Results'])
     else:
-      return results
+      break
 
-today = date.today().strftime('%Y%m%d')
+  return results
+
+TODAY = date.today().strftime('%Y%m%d')
 
 # Cache ResourceCompliance output
-RULE_CACHE = f'/tmp/ruleList-cache-{today}.txt'
-ruleList = []
+RULE_CACHE = f'/tmp/rule_list-cache-{TODAY}.txt'
+rule_list = []
 summary_list = []
 
 if path.exists(RULE_CACHE):
   with open(RULE_CACHE) as f:
-    ruleList = load(f)
+    rule_list = load(f)
 else:
-  ruleList = select_aggregate_resource_config("SELECT accountId, awsRegion, configuration.targetResourceId, configuration.configRuleList.configRuleName, configuration.configRuleList.complianceType WHERE resourceType = 'AWS::Config::ResourceCompliance'")
+  rule_list = select_aggregate_resource_config('SELECT accountId, '
+    'awsRegion, '
+    'configuration.targetResourceId, '
+    'configuration.configRuleList.configRuleName, '
+    'configuration.configRuleList.complianceType '
+    "WHERE resourceType = 'AWS::Config::ResourceCompliance'")
 
   with open(RULE_CACHE, 'w') as f:
-    dump(ruleList, f)
+    dump(rule_list, f)
 
 for rule in rules:
   resourceType = ''
@@ -293,7 +307,7 @@ for rule in rules:
     resourceType = 'AWS::EC2::SecurityGroup'
   elif rule.startswith('subnet'):
     resourceType = 'AWS::EC2::Subnet'
-  elif rule == 'service-vpc-endpoint-enabled' or rule == 'vpc-flow-logs-enabled':
+  elif rule in ('service-vpc-endpoint-enabled', 'vpc-flow-logs-enabled'):
     resourceType = 'AWS::EC2::VPC'
   elif rule.startswith('vpc'):
     resourceType = 'AWS::EC2::NetworkAcl'
@@ -342,8 +356,8 @@ for rule in rules:
           delete_keys.add(key)
 
       if len(delete_keys) >= 1:
-        for ele in delete_keys:
-          associations.pop(ele, None)
+        for del_key in delete_keys:
+          associations.pop(del_key, None)
       id_name_dict[resource['resourceId']] = dumps(associations)
       resourceInfo = 'ComplianceItem'
     elif rule == 'encrypted-volumes':
@@ -372,7 +386,7 @@ for rule in rules:
 
   compliance_list = []
 
-  for result in ruleList:
+  for result in rule_list:
     resource = loads(result)
     configuration = resource['configuration']
     id_no = configuration['targetResourceId']
@@ -394,7 +408,7 @@ for rule in rules:
 
   if len(compliance_list) >= 1:
     if not is_summary:
-      with open(path.join(dir_path, f'{rule}-{today}.csv'), 'w') as csv:
+      with open(path.join(dir_path, f'{rule}-{TODAY}.csv'), 'w') as csv:
         # unix dialect = double quote + '\n' line ending
         w = DictWriter(csv, fieldnames = list(compliance_list[0]), dialect = 'unix')
         w.writeheader()
@@ -407,8 +421,8 @@ for rule in rules:
           **ele
         })
 
-summary_csv = path.join(dir_path, f'summary-compliance-{today}.csv')
-summary_xlsx = path.join(dir_path, f'summary-compliance-{today}.xlsx')
+summary_csv = path.join(dir_path, f'summary-compliance-{TODAY}.csv')
+summary_xlsx = path.join(dir_path, f'summary-compliance-{TODAY}.xlsx')
 
 if len(summary_list) >= 1:
   with open(summary_csv, 'w') as f:

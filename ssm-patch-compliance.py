@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-# List all missing patches identified by SSM
-# Usage: ./ssm-patch-compliance.py --profile profile-name --region {us-east-1} --output output-dir
-# Refer to README.md for more details
+'''
+./ssm-patch-compliance.py --profile profile-name --region {us-east-1} --output output-dir
+'''
 
-from argparse import ArgumentParser
-import boto3
-from botocore.config import Config
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from csv import DictWriter
 from datetime import date
 from itertools import count
@@ -14,19 +12,25 @@ from json import loads
 from operator import itemgetter
 from os import path
 from pathlib import Path
+
+import boto3
 from xlsxwriter.workbook import Workbook
 
 ACCOUNT_NAME_DICT = {
   '012345678901': 'account-name'
 }
 
-parser = ArgumentParser(description = 'List all missing patches identified by the SSM.')
+parser = ArgumentParser(
+  description = 'List all missing patches identified by the SSM.',
+  formatter_class = ArgumentDefaultsHelpFormatter)
 parser.add_argument('--profile', '-p',
   required = True,
-  help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).')
+  help = 'AWS profile name. '
+    'Parsed from ~/.aws/config (SSO) or credentials (API key). '
+    'Corresponds to the account where Config is deployed.')
 parser.add_argument('--region', '-r',
   default = 'us-east-1',
-  help = 'AWS Region.')
+  help = 'AWS region where Config is deployed.')
 parser.add_argument('--output', '-o',
   default = '',
   help = 'Output directory of CSV.')
@@ -36,28 +40,35 @@ region = args.region
 dir_path = args.output
 Path(dir_path).mkdir(parents = True, exist_ok = True)
 
-session = boto3.session.Session(profile_name = profile)
-client = session.client('config', config = Config(region_name = region))
+session = boto3.session.Session(profile_name = profile, region_name = region)
+client = session.client('config')
 
-def select_aggregate_resource_config(Expression):
-  results = []
+def select_aggregate_resource_config(expression):
+  '''Run Config (SQL) query specified by "expression" argument'''
+  config_results = []
   response = {}
   for i in count():
     params = {
-      'Expression': Expression,
+      'Expression': expression,
       'ConfigurationAggregatorName': 'OrganizationConfigAggregator'
     }
     if i == 0 or 'NextToken' in response:
       if 'NextToken' in response:
         params['NextToken'] = response['NextToken']
       response = client.select_aggregate_resource_config(**params)
-      results.extend(response['Results'])
+      config_results.extend(response['Results'])
     else:
-      return results
+      break
+
+  return config_results
 
 patch_status = []
 
-results = select_aggregate_resource_config(f"SELECT accountId, awsRegion, resourceId, configuration WHERE resourceType = 'AWS::SSM::PatchCompliance'")
+results = select_aggregate_resource_config('SELECT accountId, '
+  'awsRegion, '
+  'resourceId, '
+  'configuration '
+  "WHERE resourceType = 'AWS::SSM::PatchCompliance'")
 for resource in results:
   instance = loads(resource)
   account_id = instance['accountId']
@@ -80,9 +91,9 @@ for resource in results:
       'MISSING PATCHES': '\n'.join(missing)
     })
 
-today = date.today().strftime('%Y%m%d')
-summary_csv = path.join(dir_path, f'SSM-patch-compliance-{today}.csv')
-summary_xlsx = path.join(dir_path, f'SSM-patch-compliance-{today}.xlsx')
+TODAY = date.today().strftime('%Y%m%d')
+summary_csv = path.join(dir_path, f'SSM-patch-compliance-{TODAY}.csv')
+summary_xlsx = path.join(dir_path, f'SSM-patch-compliance-{TODAY}.xlsx')
 
 if len(patch_status) >= 1:
   # sort by account name
