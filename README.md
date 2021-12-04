@@ -168,11 +168,14 @@ $ ./ssm-patch-compliance.py --profile profile-name --region {us-east-1} --output
 
 ### Default Security Groups' Compliance
 
-Checks that the default security group of any Amazon Virtual Private Cloud (VPC) does not allow inbound or outbound traffic, based on [vpc-default-security-group-closed](https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-group-closed.html) rule. If found, all rules will be removed from those security groups. By default, rules will be only removed from security groups that are _not_ attached to any [ENI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html), unless `--migrate` option is explicitly enabled.
+https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-group-closed.html
 
 ```
-./vpc-default-security-group-closed.py --profile profile-name --region region-name --migrate --eni-attachment
+./vpc-default-security-group-closed.py --accounts {[aws-accounts]} --profile {security} --region {us-east-1} --aggregator {OrganizationConfigAggregator} --remediate --output output-dir
 ```
 
-- **migrate**: Migrate ENI-attached non-compliant default security groups to custom security groups and then remove all rules from the default security groups. Disabled by default.
-- **eni-attachment**: Export a list of non-compliant default security groups to a CSV. No changes will be made if enabled.
+- **accounts**: List of space-separated 12-digit account ID(s) or name(s) to be remediated. Only applicable when `--remediate` is enabled. Defaults to all accounts.
+- **remediate**: Remediate non-compliant default security groups to custom groups. By default, this'll remove rules for un-attached security groups. Specify this option twice ("-ee") to *also* migrate attached security groups, though this is discouraged because it'll cause a config drift from CloudFormation.
+- **profile**: AWS account where AWS Config is deployed. Parsed from ~/.aws/config (SSO) or credentials (API key).
+- **region**: AWS Region where AWS Config is deployed.
+- **aggregator**: Value of ConfigurationAggregatorName.
