@@ -13,6 +13,7 @@ from os import path
 from pathlib import Path
 
 import boto3
+from tqdm import tqdm
 from xlsxwriter.workbook import Workbook
 
 VALID_RULES = [
@@ -254,7 +255,7 @@ else:
   with open(RULE_CACHE, 'w') as f:
     dump(rule_list, f)
 
-for rule in rules:
+for rule in tqdm(rules):
   resourceType = ''
 
   if rule.startswith('acm'):

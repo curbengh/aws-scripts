@@ -18,7 +18,6 @@ parser = ArgumentParser(
   description = 'For the provided profile, download all web ACLs.',
   formatter_class = ArgumentDefaultsHelpFormatter)
 parser.add_argument('--profile', '-p',
-  choices = ['altitude-live', 'parkcharge-live'],
   help = 'AWS profile name. Parsed from ~/.aws/config (SSO) or credentials (API key).',
   required = True)
 parser.add_argument('--region', '-r',

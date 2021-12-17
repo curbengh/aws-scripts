@@ -15,6 +15,7 @@ from pathlib import Path
 
 import boto3
 import botocore
+from tqdm import tqdm
 from xlsxwriter.workbook import Workbook
 
 ACCOUNT_NAME_DICT = {
@@ -189,7 +190,7 @@ for compliance_dict in compliance_list:
     })
 
 if len(non_compliant_sg) >= 1:
-  for sg in non_compliant_sg:
+  for sg in tqdm(non_compliant_sg):
     account_id = sg['ACCOUNT_ID']
     profile = sg['ACCOUNT']
     region = sg['REGION']
