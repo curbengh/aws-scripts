@@ -2,3 +2,4 @@
 pylint == 2.*
 isort == 5.*
 pre-commit == 2.*
+black ~= 22.1

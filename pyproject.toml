@@ -1,0 +1,29 @@
+[tool.pylint.'MASTER']
+py-version=3.10
+
+[tool.pylint.'MESSAGES CONTROL']
+disable=[
+  "raw-checker-failed",
+  "bad-inline-option",
+  "locally-disabled",
+  "file-ignored",
+  "suppressed-message",
+  "useless-suppression",
+  "deprecated-pragma",
+  "use-symbolic-message-instead",
+  "invalid-name",
+  "unspecified-encoding", # assume platform is Linux which defaults to UTF-8
+  "line-too-long",
+  "too-many-nested-blocks",
+  "too-many-branches",
+  "duplicate-code",
+  "fixme" # ignore TODO
+]
+
+[tool.pylint.'FORMAT']
+expected-line-ending-format=LF
+indent-after-paren=4
+indent-string='    '
+
+[tool.isort]
+profile = "black"
