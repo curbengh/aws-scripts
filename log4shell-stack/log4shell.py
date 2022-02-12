@@ -140,10 +140,6 @@ systemctl enable --now unbound.service"""
         ),
     )
 
-    CfnOutput(
-        self, f"{name}DNSInstance_PrivateIP", value=instance.instance_private_ip()
-    )
-
     return instance
 
 
@@ -181,10 +177,6 @@ docker run --name log4shell-app --rm -p 80:8080 ghcr.io/christophetd/log4shell-v
         ),
     )
 
-    CfnOutput(
-        self, f"{name}Log4JInstance_PublicIP", value=instance.instance_public_ip()
-    )
-
     return instance
 
 
@@ -202,5 +194,18 @@ class Log4Shell(Stack):
         role = create_ssm_role(self, name)
         vpc = create_vpc(self, name)
         security_group = create_security_group(self, name, vpc, your_ip)
-        create_dns_instance(self, name, vpc, role, security_group, key_name)
-        create_log4j_instance(self, name, vpc, role, security_group, key_name)
+        dns_instance = create_dns_instance(
+            self, name, vpc, role, security_group, key_name
+        )
+        log4j_instance = create_log4j_instance(
+            self, name, vpc, role, security_group, key_name
+        )
+
+        CfnOutput(
+            self, f"{name}DNSInstance_PrivateIP", value=dns_instance.instance_private_ip
+        )
+        CfnOutput(
+            self,
+            f"{name}Log4JInstance_PublicIP",
+            value=log4j_instance.instance_public_ip,
+        )
