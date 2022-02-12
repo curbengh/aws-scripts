@@ -193,12 +193,11 @@ class Log4Shell(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         stack_name = kwargs["stack_name"]
-        env = kwargs["env"]
         name = kwargs["name"]
         key_name = kwargs["key_name"]
         your_ip = kwargs["ip"]
 
-        super().__init__(scope, construct_id, stack_name=stack_name, env=env)
+        super().__init__(scope, construct_id, stack_name=stack_name)
 
         role = create_ssm_role(self, name)
         vpc = create_vpc(self, name)
