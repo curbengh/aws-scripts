@@ -6,7 +6,7 @@ Demonstration of [Log4Shell](https://en.wikipedia.org/wiki/Log4Shell) vulnerabil
 
 Stack name is **Log4ShellStack**. It will be deployed to the default account and region configured in `~/.aws/config`. Refer to CDK [installation guide](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html#getting_started_prerequisites).
 
-Before deploying this stack, create/upload an SSH keypair or specify your existing one. Inbound connection to deployed instances is limited to your public IP, I usually use [dnsleaktest.com](https://www.dnsleaktest.com/) to see my IP.
+Before deploying this stack, create/upload an SSH keypair or specify your existing one. Inbound connection to deployed instances is limited to your public IP, `curl -s http://portquiz.net | grep 'IP' | cut -d' ' -f3` to see your IP.
 
 ```
 # Create venv
