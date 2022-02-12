@@ -73,7 +73,7 @@ def create_dns_instance(self, name, vpc, role, security_group, key_name):
     region = environ["CDK_DEFAULT_REGION"]
     commands = """\
 apt update
-ln -s /dev/null /etc/systemd/system/unbound.service
+ln -sf /dev/null /etc/systemd/system/unbound.service
 apt install -y unbound
 
 mkdir -p "/etc/unbound/unbound.conf.d/"
@@ -98,10 +98,6 @@ forward-zone:
 
 systemctl disable --now systemd-resolved
 systemctl mask systemd-resolved
-rm /etc/resolv.conf
-echo 'nameserver 127.0.0.1
-options edns0 trust-ad
-search ap-southeast-2.compute.internal' > /etc/resolv.conf
 
 HOSTNAME=$(hostname -s)
 echo "127.0.0.1 $HOSTNAME" >> "/etc/hosts"
@@ -111,7 +107,7 @@ systemctl enable --now unbound.service"""
     # workaround for SSM agent to work
     resolv = "\n".join(
         [
-            "rm /etc/resolv.conf",
+            "rm -f /etc/resolv.conf",
             "echo 'nameserver 127.0.0.1",
             "options edns0 trust-ad",
             f"search {region}.compute.internal' > /etc/resolv.conf",
