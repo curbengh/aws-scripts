@@ -179,3 +179,7 @@ https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-gr
 - **profile**: AWS account where AWS Config is deployed. Parsed from ~/.aws/config (SSO) or credentials (API key).
 - **region**: AWS Region where AWS Config is deployed.
 - **aggregator**: Value of ConfigurationAggregatorName.
+
+## Log4Shell Demo
+
+[log4shell-stack](log4shell-stack/)

@@ -1,5 +1,5 @@
 [tool.pylint.'MASTER']
-py-version=3.10
+py-version='3.10'
 
 [tool.pylint.'MESSAGES CONTROL']
 disable=[
@@ -21,7 +21,7 @@ disable=[
 ]
 
 [tool.pylint.'FORMAT']
-expected-line-ending-format=LF
+expected-line-ending-format="LF"
 indent-after-paren=4
 indent-string='    '
 
