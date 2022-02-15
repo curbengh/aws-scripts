@@ -198,10 +198,10 @@ class Log4Shell(Stack):
         )
 
         CfnOutput(
-            self, f"{name}DNSInstance_PrivateIP", value=dns_instance.instance_private_ip
+            self, f"{name}DNSInstance-PrivateIP", value=dns_instance.instance_private_ip
         )
         CfnOutput(
             self,
-            f"{name}Log4JInstance_PublicIP",
+            f"{name}Log4JInstance-PublicIP",
             value=log4j_instance.instance_public_ip,
         )
