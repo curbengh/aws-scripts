@@ -7,6 +7,7 @@
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from datetime import date
 from json import dump
+from operator import itemgetter
 from os import path
 from pathlib import Path
 
@@ -92,6 +93,25 @@ def field_to_match(obj):
     )
 
 
+def text_transform_fn(array, field):
+    """
+    Summarise text transformations into "transform(field)",
+    supports multiple transformations according to priority,
+    e.g. "transform1(transform0(field))
+
+    Arguments:
+    array -- List-type value of "TextTransformations"
+    field -- String-type Value of "FieldToMatch"
+    """
+    output = field
+    for ele in sorted(array, key=itemgetter("Priority")):
+        if ele["Type"] != "NONE":
+            output = f'{ele["Type"]}({output})'
+
+    return output
+
+
+# pylint: disable=too-many-locals, too-many-statements
 def parse_statement(obj):
     """Parse each rule statement"""
     first_key_obj = first_key(obj)
@@ -103,6 +123,7 @@ def parse_statement(obj):
         search_string = ""
         field_match = ""
         positional_constraint = ""
+        text_transform_field = ""
 
         if first_key_obj == "NotStatement":
             not_prefix = "NOT "
@@ -118,10 +139,13 @@ def parse_statement(obj):
                 else obj["ByteMatchStatement"]["FieldToMatch"]["SingleHeader"]["Name"]
             )
             positional_constraint = obj["ByteMatchStatement"]["PositionalConstraint"]
+            text_transform_field = text_transform_fn(
+                obj["ByteMatchStatement"]["TextTransformations"], field_match
+            )
 
             # WCU Calculation
             wcu_statement["statement"] = "string_match"
-            # assume single-element TextTransformations
+            # TODO: support multi-element TextTransformations
             wcu_statement["text_transform"] = obj["ByteMatchStatement"][
                 "TextTransformations"
             ][0]["Type"].lower()
@@ -134,43 +158,45 @@ def parse_statement(obj):
             ip_set_arn = obj["IPSetReferenceStatement"]["ARN"]
             ip_set_name = ip_set_arn.split("/")[-2]
             ip_set_id = ip_set_arn.split("/")[-1]
-            search_string = ip_set_name
+            positional_constraint = ip_set_name
 
             if show_ip_set:
                 ip_set = client.get_ip_set(Name=ip_set_name, Scope=scope, Id=ip_set_id)
                 search_string = ", ".join(ip_set["IPSet"]["Addresses"])
 
-            positional_constraint = "IPSet"
+            text_transform_field = "IPSet"
             wcu_statement["statement"] = "ipset"
         elif first_key_obj == "GeoMatchStatement":
             search_string = ", ".join(obj["GeoMatchStatement"]["CountryCodes"])
             positional_constraint = "Geomatch"
             wcu_statement["statement"] = "geomatch"
+        elif first_key_obj == "ManagedRuleGroupStatement":
+            search_string = ""
+            positional_constraint = obj[first_key_obj]["Name"]
+            wcu_statement["statement"] = positional_constraint
 
-        separator = "=" if len(field_match) >= 1 else ""
-        text = f"{not_prefix}{field_match}{separator}{positional_constraint}({search_string})"
+        separator = "=" if len(text_transform_field) >= 1 else ""
+        left_bracket = "(" if len(search_string) >= 1 else ""
+        right_bracket = ")" if len(search_string) >= 1 else ""
+        text = f"{not_prefix}{text_transform_field}{separator}{positional_constraint}{left_bracket}{search_string}{right_bracket}"
     else:
-        text = f'{first_key_obj}({first_key(obj[first_key_obj]["FieldToMatch"])})'
+        field_match = first_key(obj[first_key_obj]["FieldToMatch"])
+        text_transform_field = text_transform_fn(
+            obj[first_key_obj]["TextTransformations"], field_match
+        )
+        text = f"{text_transform_field}={first_key_obj}"
+
         if first_key_obj == "SqliMatchStatement":
             wcu_statement["statement"] = "sql"
-            wcu_statement["text_transform"] = obj["SqliMatchStatement"][
-                "TextTransformations"
-            ][0]["Type"].lower()
-
-            if "TextTransformations" in obj["SqliMatchStatement"]:
-                wcu_statement["field"] = field_to_match(
-                    obj["SqliMatchStatement"]["FieldToMatch"]
-                )
         else:
             wcu_statement["statement"] = "xss"
-            wcu_statement["text_transform"] = obj["XssMatchStatement"][
-                "TextTransformations"
-            ][0]["Type"].lower()
 
-            if "TextTransformations" in obj["XssMatchStatement"]:
-                wcu_statement["field"] = field_to_match(
-                    obj["XssMatchStatement"]["FieldToMatch"]
-                )
+        wcu_statement["text_transform"] = obj[first_key_obj]["TextTransformations"][0][
+            "Type"
+        ].lower()
+
+        if "TextTransformations" in obj[first_key_obj]:
+            wcu_statement["field"] = field_to_match(obj[first_key_obj]["FieldToMatch"])
 
     return {"text": text, "wcu_statement": wcu_statement}
 
@@ -191,7 +217,8 @@ def parse_rule(obj):
         close_paren = ")" if first_key_obj == "OrStatement" else ""
         statements = obj[first_key_obj]["Statements"]
 
-        for i in range(0, len(statements)):  # pylint: disable=consider-using-enumerate
+        # pylint: disable=consider-using-enumerate
+        for i in range(0, len(statements)):
             statement = statements[i]
             rule = parse_statement(statement)["text"]
 
@@ -226,9 +253,22 @@ wcu_dict = {
     "sql": 20,
     "xss": 40,
     "text_transform": 10,
+    # https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list.html
+    "AWSManagedRulesCommonRuleSet": 700,
+    "AWSManagedRulesAdminProtectionRuleSet": 100,
+    "AWSManagedRulesKnownBadInputsRuleSet": 200,
+    "AWSManagedRulesSQLiRuleSet": 200,
+    "AWSManagedRulesLinuxRuleSet": 200,
+    "AWSManagedRulesUnixRuleSet": 100,
+    "AWSManagedRulesWindowsRuleSet": 200,
+    "AWSManagedRulesPHPRuleSet": 100,
+    "AWSManagedRulesWordPressRuleSet": 100,
+    "AWSManagedRulesAmazonIpReputationList": 25,
+    "AWSManagedRulesAnonymousIpList": 50,
 }
 
 
+# pylint: disable=too-many-locals
 def parse_web_acl(input_acl):
     """Convert JSON-formatted web ACL to human-readable string"""
     rule_statements = []
@@ -252,9 +292,11 @@ def parse_web_acl(input_acl):
             continue
 
         out_rule[rule["Name"]] = parse_rule(rule["Statement"])["text"]
-        out_rule["Action"] = (
-            "Allow" if first_key(rule["Action"]) == "Allow" else "Block"
-        )
+        if rule.get("Action") is None:
+            action = "Default"
+        else:
+            action = "Allow" if first_key(rule["Action"]) == "Allow" else "Block"
+        out_rule["Action"] = action
 
         # WCU calculation
         # if show_wcu or show_total_wcu:
