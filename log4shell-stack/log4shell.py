@@ -144,13 +144,14 @@ def create_log4j_instance(self, name, vpc, role, security_group, key_name):
     """Create an instance with vulnerable app installed"""
 
     commands = """\
-dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-systemctl enable --now amazon-ssm-agent
+. /etc/os-release
+echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/Release.key" | apt-key add -
+apt update
+apt upgrade -y
+apt install -y podman
 
-dnf install -y docker
-systemctl enable --now docker
-
-docker run --name log4shell-app --rm -p 80:8080 ghcr.io/christophetd/log4shell-vulnerable-app
+podman run -d --name log4shell-app --rm -p 80:8080 ghcr.io/christophetd/log4shell-vulnerable-app
 """
 
     user_data = ec2.UserData.for_linux()
@@ -167,8 +168,8 @@ docker run --name log4shell-app --rm -p 80:8080 ghcr.io/christophetd/log4shell-v
         user_data=user_data,
         key_name=key_name,
         instance_type=ec2.InstanceType("t2.micro"),
-        machine_image=ec2.AmazonLinuxImage(
-            generation=ec2.AmazonLinuxGeneration.AMAZON_LINUX_2022,
+        machine_image=ec2.MachineImage.from_ssm_parameter(
+            "/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id",
             cached_in_context=False,
         ),
     )
