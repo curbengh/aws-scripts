@@ -27,7 +27,10 @@ parser.add_argument(
 )
 parser.add_argument("--region", "-r", help="AWS region", default="us-east-1")
 parser.add_argument(
-    "--scope-regional", "-s", help="Regional scope", action="store_true"
+    "--scope-regional",
+    "-s",
+    help="Regional scope. Defaults to Cloudfront if disabled.",
+    action="store_true",
 )
 parser.add_argument(
     "--directory",
@@ -100,8 +103,8 @@ def text_transform_fn(array, field):
     e.g. "transform1(transform0(field))
 
     Arguments:
-    array -- List-type value of "TextTransformations"
-    field -- String-type Value of "FieldToMatch"
+        array {list} -- value of "TextTransformations"
+        field {string} -- value of "FieldToMatch"
     """
     output = field
     for ele in sorted(array, key=itemgetter("Priority")):
@@ -171,9 +174,14 @@ def parse_statement(obj):
             positional_constraint = "Geomatch"
             wcu_statement["statement"] = "geomatch"
         elif first_key_obj == "ManagedRuleGroupStatement":
-            search_string = ""
-            positional_constraint = obj[first_key_obj]["Name"]
-            wcu_statement["statement"] = positional_constraint
+            text_transform_field = obj[first_key_obj]["Name"]
+            wcu_statement["statement"] = text_transform_field
+
+            if "ExcludedRules" in obj[first_key_obj]:
+                positional_constraint = "ExcludedRules"
+                search_string = ", ".join(
+                    [ele["Name"] for ele in obj[first_key_obj]["ExcludedRules"]]
+                )
 
         separator = "=" if len(text_transform_field) >= 1 else ""
         left_bracket = "(" if len(search_string) >= 1 else ""
