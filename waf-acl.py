@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-./waf-acl.py --profile [altitude-live,parkcharge-live] --directory output-dir --original --wcu --ip-set
+./waf-acl.py --profile [profile-name] --directory output-dir --original --wcu --ip-set
 """
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
