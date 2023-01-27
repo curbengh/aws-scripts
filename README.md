@@ -47,6 +47,7 @@ $ ./aws-config.py --profile profile-name --region {us-east-1} --rules space sepa
 - **summary**: Save output of all supported rules (see below) into CSV and XLSX files.
 
 Supported Rules:
+
 - [access-keys-rotated](https://docs.aws.amazon.com/config/latest/developerguide/access-keys-rotated.html)
 - [acm-certificate-expiration-check](https://docs.aws.amazon.com/config/latest/developerguide/acm-certificate-expiration-check.html)
 - [alb-http-drop-invalid-header-enabled](https://docs.aws.amazon.com/config/latest/developerguide/alb-http-drop-invalid-header-enabled.html)
@@ -144,7 +145,7 @@ Supported Rules:
 - [sns-encrypted-kms](https://docs.aws.amazon.com/config/latest/developerguide/sns-encrypted-kms.html)
 - [subnet-auto-assign-public-ip-disabled](https://docs.aws.amazon.com/config/latest/developerguide/subnet-auto-assign-public-ip-disabled.html)
 - [vpc-default-security-group-closed](https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-group-closed.html)
-  * Use [this script](#default-security-groups-compliance) to fix.
+  - Use [this script](#default-security-groups-compliance) to fix.
 - [vpc-flow-logs-enabled](https://docs.aws.amazon.com/config/latest/developerguide/vpc-flow-logs-enabled.html)
 - [vpc-network-acl-unused-check](https://docs.aws.amazon.com/config/latest/developerguide/vpc-network-acl-unused-check.html)
 - [vpc-sg-open-only-to-authorized-ports](https://docs.aws.amazon.com/config/latest/developerguide/vpc-sg-open-only-to-authorized-ports.html)
@@ -175,7 +176,7 @@ https://docs.aws.amazon.com/config/latest/developerguide/vpc-default-security-gr
 ```
 
 - **accounts**: List of space-separated 12-digit account ID(s) or name(s) to be remediated. Only applicable when `--remediate` is enabled. Defaults to all accounts.
-- **remediate**: Remediate non-compliant default security groups to custom groups. By default, this'll remove rules for un-attached security groups. Specify this option twice ("-ee") to *also* migrate attached security groups, though this is discouraged because it'll cause a config drift from CloudFormation.
+- **remediate**: Remediate non-compliant default security groups to custom groups. By default, this'll remove rules for un-attached security groups. Specify this option twice ("-ee") to _also_ migrate attached security groups, though this is discouraged because it'll cause a config drift from CloudFormation.
 - **profile**: AWS account where AWS Config is deployed. Parsed from ~/.aws/config (SSO) or credentials (API key).
 - **region**: AWS Region where AWS Config is deployed.
 - **aggregator**: Value of ConfigurationAggregatorName.
