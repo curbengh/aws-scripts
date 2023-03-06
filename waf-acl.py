@@ -186,7 +186,11 @@ def parse_statement(obj):
         separator = "=" if len(text_transform_field) >= 1 else ""
         left_bracket = "(" if len(search_string) >= 1 else ""
         right_bracket = ")" if len(search_string) >= 1 else ""
-        text = f"{not_prefix}{text_transform_field}{separator}{positional_constraint}{left_bracket}{search_string}{right_bracket}"
+        text = (
+            f"{not_prefix}{text_transform_field}"
+            f"{separator}{positional_constraint}"
+            f"{left_bracket}{search_string}{right_bracket}"
+        )
     else:
         field_match = first_key(obj[first_key_obj]["FieldToMatch"])
         text_transform_field = text_transform_fn(

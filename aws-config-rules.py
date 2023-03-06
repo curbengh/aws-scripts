@@ -2,7 +2,10 @@
 
 """
 Download a list of resource compliance rules
-Usage: ./aws-config-rules.py --profile profile-name --region {us-east-1} --output output-dir
+Usage: ./aws-config-rules.py \
+    --profile profile-name \
+    --region {us-east-1}\
+    --output output-dir
 """
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser

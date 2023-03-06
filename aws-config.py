@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 """
-Usage: ./aws-config.py --profile profile-name --region {us-east-1} --rules space separated rules --output output-dir --summary
+Usage: ./aws-config.py \
+    --profile profile-name \
+    --region {us-east-1} \
+    --rules space separated rules \
+    --output output-dir --summary
 """
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -274,7 +278,10 @@ for rule in tqdm(rules):
     elif "cloud-trail" in rule:
         resourceType = "AWS::CloudTrail::Trail"
     elif rule.startswith("cloudfront"):
-        resourceType = "AWS::CloudFront::Distribution' AND configuration.distributionConfig.enabled = 'true"
+        resourceType = (
+            "AWS::CloudFront::Distribution' AND "
+            "configuration.distributionConfig.enabled = 'true"
+        )
     elif "cmk" in rule:
         resourceType = "AWS::KMS::Key' AND configuration.enabled = 'true"
     elif rule.startswith("codebuild"):
@@ -332,7 +339,8 @@ for rule in tqdm(rules):
     }
 
     resourceList = select_aggregate_resource_config(
-        f"SELECT resourceId, resourceName, configuration WHERE resourceType = '{resourceType}'"
+        "SELECT resourceId, resourceName, configuration "
+        f"WHERE resourceType = '{resourceType}'"
     )
     resourceInfo = "resourceName"
 

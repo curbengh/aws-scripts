@@ -25,5 +25,5 @@ expected-line-ending-format="LF"
 indent-after-paren=4
 indent-string='    '
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 115

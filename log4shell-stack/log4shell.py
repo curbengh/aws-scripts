@@ -145,8 +145,9 @@ def create_log4j_instance(self, name, vpc, role, security_group, key_name):
 
     commands = """\
 . /etc/os-release
-echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
-curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/Release.key" | apt-key add -
+REPO="https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable"
+echo "deb ${REPO}/xUbuntu_${VERSION_ID}/ /" > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+curl -L "${REPO}/xUbuntu_${VERSION_ID}/Release.key" | apt-key add -
 apt update
 apt upgrade -y
 apt install -y podman

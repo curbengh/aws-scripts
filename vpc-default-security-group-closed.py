@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 
 """
-./vpc-default-security-group-closed.py --accounts {[aws-accounts]} --profile profile-name --region {us-east-1} --remediate --output output-dir
+./vpc-default-security-group-closed.py \
+    --accounts {[aws-accounts]} \
+    --profile profile-name \
+    --region {us-east-1} \
+    --remediate \
+    --output output-dir
 """
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -343,7 +348,11 @@ if len(non_compliant_sg) >= 1:
                         )
                         client = session.client("elbv2")
                         client.set_security_groups(
-                            LoadBalancerArn=f'arn:aws:elasticloadbalancing:{region}:{eni["OwnerId"]}:loadbalancer/{eni["Description"].split(" ")[1]}',
+                            LoadBalancerArn=(
+                                f"arn:aws:elasticloadbalancing:{region}:"
+                                f'{eni["OwnerId"]}:'
+                                f'loadbalancer/{eni["Description"].split(" ")[1]}'
+                            ),
                             SecurityGroups=new_groups,
                         )
                     elif requester_id == "amazon-rds":
@@ -390,7 +399,8 @@ if len(non_compliant_sg) >= 1:
                             )
                         except botocore.exceptions.ClientError:
                             print(
-                                f'Error: cannot modify ENI ID "{eni["NetworkInterfaceId"]}", Description "{eni["Description"]}"'
+                                f'Error: cannot modify ENI ID "{eni["NetworkInterfaceId"]}", '
+                                f'Description "{eni["Description"]}"'
                             )
 
                 client = session.client("ec2")
