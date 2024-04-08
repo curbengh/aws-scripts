@@ -11,7 +11,7 @@ from aws_cdk import aws_iam as iam
 from constructs import Construct
 
 
-def create_ssm_role(self, name):
+def create_ssm_role(self, name: str) -> iam.IRole:
     """Create an IAM role with minimal SSM permissions"""
     role = iam.Role(
         self,
@@ -26,7 +26,7 @@ def create_ssm_role(self, name):
     return role
 
 
-def create_vpc(self, name):
+def create_vpc(self, name: str) -> ec2.IVpc:
     """Create a VPC with 1 public subnets"""
     vpc = ec2.Vpc(
         self,
@@ -45,7 +45,9 @@ def create_vpc(self, name):
     return vpc
 
 
-def create_security_group(self, name, vpc, your_ip):
+def create_security_group(
+    self, name: str, vpc: ec2.IVpc, your_ip: str
+) -> ec2.ISecurityGroup:
     """Create a security group to allow SSH and DNS access"""
     security_group = ec2.SecurityGroup(
         self,
@@ -66,8 +68,14 @@ def create_security_group(self, name, vpc, your_ip):
     return security_group
 
 
-# pylint: disable=too-many-arguments
-def create_dns_instance(self, name, vpc, role, security_group, key_name):
+def create_dns_instance(
+    self,
+    name: str,
+    vpc: ec2.IVpc,
+    role: iam.IRole,
+    security_group: ec2.ISecurityGroup,
+    key_name: str,
+) -> ec2.IInstance:
     """Create an instance with Unbound installed"""
 
     region = environ["CDK_DEFAULT_REGION"]
@@ -139,8 +147,14 @@ systemctl enable --now unbound.service"""
     return instance
 
 
-# pylint: disable=too-many-arguments
-def create_log4j_instance(self, name, vpc, role, security_group, key_name):
+def create_log4j_instance(
+    self,
+    name: str,
+    vpc: ec2.IVpc,
+    role: iam.IRole,
+    security_group: ec2.ISecurityGroup,
+    key_name: str,
+) -> ec2.IInstance:
     """Create an instance with vulnerable app installed"""
 
     commands = """\

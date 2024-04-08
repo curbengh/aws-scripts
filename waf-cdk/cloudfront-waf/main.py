@@ -12,7 +12,7 @@ from aws_cdk import aws_wafv2 as waf
 from constructs import Construct
 
 
-def create_waf(self, name, ip_allowlist):
+def create_waf(self, name: str, ip_allowlist: list[str]) -> waf.CfnWebACL:
     ip_set = waf.CfnIPSet(
         self,
         f"{name}-IPSet",
@@ -75,7 +75,9 @@ def create_waf(self, name, ip_allowlist):
     return web_acl
 
 
-def create_cf_dist(self, name, domain, origin, cert, waf_arn):
+def create_cf_dist(
+    self, name: str, domain: str, origin: str, cert: acm.ICertificate, waf_arn: str
+) -> cloudfront.IDistribution:
     cf_dist = cloudfront.Distribution(
         self,
         f"{name}-CfDist",
