@@ -40,7 +40,7 @@ def create_waf(self, name: str, ip_allowlist: list[str]) -> waf.CfnWebACL:
         rules=[
             waf.CfnWebACL.RuleProperty(
                 name=f"{name}-IP-Allowlist",
-                priority=0,
+                priority=100,
                 action=waf.CfnWebACL.RuleActionProperty(block={}),
                 visibility_config=waf.CfnWebACL.VisibilityConfigProperty(
                     sampled_requests_enabled=True,
@@ -57,7 +57,7 @@ def create_waf(self, name: str, ip_allowlist: list[str]) -> waf.CfnWebACL:
             ),
             waf.CfnWebACL.RuleProperty(
                 name="AWS-AWSManagedRulesCommonRuleSet",
-                priority=1,
+                priority=200,
                 statement=waf.CfnWebACL.StatementProperty(
                     managed_rule_group_statement=waf.CfnWebACL.ManagedRuleGroupStatementProperty(
                         vendor_name="AWS", name="AWSManagedRulesCommonRuleSet"
