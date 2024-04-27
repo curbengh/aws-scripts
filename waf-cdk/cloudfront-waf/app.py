@@ -19,6 +19,13 @@ ip_allowlist = [
     "1.2.3.4/32",
     "5.6.7.8/32",
 ]
+# https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/adding-cloudfront-headers.html
+cf_headers = [
+    "CloudFront-Viewer-Address",
+    "CloudFront-Viewer-Country",
+    "CloudFront-Viewer-TLS",
+]
+country_allowlist = ["US"]
 
 main(
     app,
@@ -29,6 +36,8 @@ main(
     origin=origin,
     cert_arn=cert_arn,
     ip_allowlist=ip_allowlist,
+    cf_headers=cf_headers,
+    country_allowlist=country_allowlist,
     # Cloudfront can be in any region,
     # but since it requires ACM and WAF to be in us-east-1,
     # it will be deployed there for simplicity

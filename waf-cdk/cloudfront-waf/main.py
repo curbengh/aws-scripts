@@ -76,7 +76,14 @@ def create_waf(self, name: str, ip_allowlist: list[str]) -> waf.CfnWebACL:
 
 
 def create_cf_dist(
-    self, name: str, domain: str, origin: str, cert: acm.ICertificate, waf_arn: str
+    self,
+    name: str,
+    domain: str,
+    origin: str,
+    cf_headers: list[str],
+    cert: acm.ICertificate,
+    country_allowlist: list[str],
+    waf_arn: str,
 ) -> cloudfront.IDistribution:
     cf_dist = cloudfront.Distribution(
         self,
@@ -85,11 +92,17 @@ def create_cf_dist(
             origin=origins.HttpOrigin(origin),
             allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
             viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            origin_request_policy=cloudfront.OriginRequestPolicy(
+                self,
+                f"{name}-CfOrigReqPolicy",
+                header_behavior=cloudfront.OriginRequestHeaderBehavior.all(*cf_headers),
+                query_string_behavior=cloudfront.OriginRequestQueryStringBehavior.all(),
+            ),
         ),
         domain_names=[domain],
         certificate=cert,
         minimum_protocol_version=cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
-        geo_restriction=cloudfront.GeoRestriction.allowlist("US"),
+        geo_restriction=cloudfront.GeoRestriction.allowlist(*country_allowlist),
         web_acl_id=waf_arn,
     )
     return cf_dist
@@ -105,12 +118,23 @@ class main(Stack):
         origin = kwargs["origin"]
         cert_arn = kwargs["cert_arn"]
         ip_allowlist = kwargs["ip_allowlist"]
+        cf_headers = kwargs["cf_headers"]
+        country_allowlist = kwargs["country_allowlist"]
 
         super().__init__(scope, construct_id, stack_name=stack_name, env=env)
 
         cert = acm.Certificate.from_certificate_arn(self, f"{name}-Cert", cert_arn)
         waf = create_waf(self, name, ip_allowlist)
-        cf_dist = create_cf_dist(self, name, domain, origin, cert, waf.attr_arn)
+        cf_dist = create_cf_dist(
+            self,
+            name,
+            domain,
+            origin,
+            cf_headers,
+            cert,
+            country_allowlist,
+            waf.attr_arn,
+        )
 
         hosted_zone = route53.PublicHostedZone.from_lookup(
             self, f"{name}-HostedZone", domain_name=domain
@@ -124,6 +148,6 @@ class main(Stack):
 
         CfnOutput(
             self,
-            f"{name}-CfDist-Outputs",
+            "CloudFront-Domain",
             value=f"{domain} alias of {cf_dist.domain_name}",
         )
