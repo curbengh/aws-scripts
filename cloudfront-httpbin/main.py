@@ -17,6 +17,7 @@ def create_cf_dist(
         default_behavior=cloudfront.BehaviorOptions(
             origin=origins.HttpOrigin(origin),
             allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
+            cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
             origin_request_policy=cloudfront.OriginRequestPolicy(
                 self,
                 f"{name}-CfOriReqPolicy",
