@@ -5,7 +5,6 @@ Synthesize a stack into a CloudFormation template
 """
 
 from sys import exit as sys_exit
-from sys import stderr
 
 import aws_cdk as cdk
 from log4shell import Log4Shell
@@ -16,11 +15,7 @@ key_name = app.node.try_get_context("key_name")
 ip = app.node.try_get_context("ip")
 
 if key_name is None or ip is None:
-    print(
-        "cdk {synth|deploy} -c key_name=ssh-keypair-name -c ip=your-public-ip",
-        file=stderr,
-    )
-    sys_exit(1)
+    sys_exit("cdk {synth|deploy} -c key_name=ssh-keypair-name -c ip=your-public-ip")
 
 Log4Shell(
     app,
