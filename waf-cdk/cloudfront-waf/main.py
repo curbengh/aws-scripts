@@ -145,6 +145,12 @@ class main(Stack):
             zone=hosted_zone,
             target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(cf_dist)),
         )
+        route53.AaaaRecord(
+            self,
+            f"{name}-AAAARecord",
+            zone=hosted_zone,
+            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(cf_dist)),
+        )
 
         CfnOutput(
             self,
