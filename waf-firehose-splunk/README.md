@@ -29,7 +29,7 @@ cdk deploy -v WAF-Firehose-Splunk-S3Stack
 
 Save the ARN value to `bucket_arn` in [app.py](./app.py). If the variable is left as an empty string, a bucket will be created in the [WAF-Firehose-Splunk](#firehose) stack instead.
 
-#### Failed events
+#### Failed event
 
 Object key: splunk-failed/YYYY/MM/DD/HH/{firehose-stream-name}-1-{YYYY-MM-DD-HH-mm-ss}-{random-uuid}
 
@@ -45,6 +45,8 @@ Object key: splunk-failed/YYYY/MM/DD/HH/{firehose-stream-name}-1-{YYYY-MM-DD-HH-
   "EventId": "56-digit.0"
 }
 ```
+
+#### WAF event
 
 Decoded base64 or the WAF event schema:
 
