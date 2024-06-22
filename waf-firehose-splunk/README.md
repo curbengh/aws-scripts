@@ -59,7 +59,15 @@ Decoded base64 or the WAF event schema:
   "terminatingRuleMatchDetails": [],
   "httpSourceName": "CF",
   "httpSourceId": "cf-distribution-id",
-  "ruleGroupList": [],
+  "ruleGroupList": [
+    {
+      "ruleGroupId": "AWS#AWSManagedRulesCommonRuleSet",
+      "terminatingRule": null,
+      "nonTerminatingMatchingRules": [],
+      "excludeRules": null,
+      "customerConfig": null
+    }
+  ],
   "rateBasedRuleList": [],
   "nonTerminatingMatchingRules": [],
   "requestHeadersInserted": null,
