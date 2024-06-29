@@ -94,6 +94,8 @@ Decoded base64 or the WAF event schema:
 }
 ```
 
+`terminatingRuleId` corresponds to the [`name`](https://gitlab.com/curben/aws-scripts/-/blob/91956d8d7b4a5766a13e6ccf1bb0c5e73920cccf/waf-cdk/cloudfront-waf/main.py#L42) of the matching Web ACL rule or `Default_Action` if there is no match.
+
 ### Firehose
 
 ```
