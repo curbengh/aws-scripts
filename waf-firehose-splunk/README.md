@@ -8,7 +8,7 @@ Add Firehose's [regional CIDR blocks](https://docs.aws.amazon.com/firehose/lates
 
 ### HEC token
 
-Create a new [HEC token](https://myhost.splunkcloud.com/en-US/manager/search/http-eventcollector), set the source type as (existing) "[aws:firehose:text](https://docs.splunk.com/Documentation/AddOns/released/AWS/InstallationstepsformanagedSplunkCloud)" and save the token to hec_token.txt. Do not save using shell (echo/printf) [unless](https://www.gnu.org/software/bash/manual/bash.html#index-HISTCONTROL) you know what you're doing.
+Create a new [HEC token](https://myhost.splunkcloud.com/en-US/manager/search/http-eventcollector), set the source type as (existing) "[aws:firehose:waf](https://gitlab.com/curben/splunk-scripts/-/tree/main/Splunk_TA_aws)" and save the token to hec_token.txt. Do not save using shell (echo/printf) [unless](https://www.gnu.org/software/bash/manual/bash.html#index-HISTCONTROL) you know what you're doing.
 
 ```
 aws secretsmanager create-secret --name "WAF-Firehose-Splunk/hec_token" --secret-string file://hec_token.txt --description "Token to forward WAF logs to Splunk HEC via Firehose" --region "region-name"
