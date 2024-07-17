@@ -106,6 +106,11 @@ def create_trail(self, name: str, bucket: s3.IBucket) -> cloudtrail.Trail:
 
 
 def create_bucket(self, name: str) -> s3.IBucket:
+    expiration = 365
+
+    if name.endswith("Firehose"):
+        expiration = 30
+
     return s3.Bucket(
         self,
         f"{name}-Bucket",
@@ -119,14 +124,14 @@ def create_bucket(self, name: str) -> s3.IBucket:
                         transition_after=Duration.days(30),
                     )
                 ],
-                expiration=Duration.days(365),
+                expiration=Duration.days(expiration),
             )
         ],
+        versioned=True,
         object_lock_enabled=True,
         object_lock_default_retention=s3.ObjectLockRetention.governance(
-            duration=Duration.days(365)
+            duration=Duration.days(expiration)
         ),
-        versioned=True,
     )
 
 
