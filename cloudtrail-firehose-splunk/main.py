@@ -15,30 +15,6 @@ from aws_cdk import aws_secretsmanager as secrets
 from constructs import Construct
 
 
-def create_firehose_inline_policy(self, name, firehose_bucket_arn: str) -> iam.IPolicy:
-    return iam.Policy(
-        self,
-        f"{name}-Firehose-RolePolicy",
-        statements=[
-            iam.PolicyStatement(
-                actions=[
-                    "s3:AbortMultipartUpload",
-                    "s3:GetBucketLocation",
-                    "s3:GetObject",
-                    "s3:ListBucket",
-                    "s3:ListBucketMultipartUploads",
-                    "s3:PutObject",
-                ],
-                effect=iam.Effect.ALLOW,
-                resources=[
-                    firehose_bucket_arn,
-                    f"{firehose_bucket_arn}/*",
-                ],
-            )
-        ],
-    )
-
-
 def create_firehose_role(self, name: str, bucket_arn: str) -> iam.IRole:
     bucket_name = bucket_arn.split(":")[-1]
     return iam.Role(
