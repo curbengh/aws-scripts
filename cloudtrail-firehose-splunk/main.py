@@ -4,8 +4,8 @@ Create Cloudtrail-Firehose-Splunk-Stack
 
 from os import environ
 
-from aws_cdk import Duration, Stack
 from aws_cdk import Environment as CdkEnvironment
+from aws_cdk import Stack
 from aws_cdk import aws_cloudtrail as cloudtrail
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
@@ -82,32 +82,32 @@ def create_trail(self, name: str, bucket: s3.IBucket) -> cloudtrail.Trail:
 
 
 def create_bucket(self, name: str) -> s3.IBucket:
-    expiration = 365
+    # expiration = 365
 
-    if name.endswith("Firehose"):
-        expiration = 30
+    # if name.endswith("Firehose"):
+    #     expiration = 30
 
     return s3.Bucket(
         self,
         f"{name}-Bucket",
         enforce_ssl=True,
         minimum_tls_version=1.2,
-        lifecycle_rules=[
-            s3.LifecycleRule(
-                transitions=[
-                    s3.Transition(
-                        storage_class=s3.StorageClass.INFREQUENT_ACCESS,
-                        transition_after=Duration.days(30),
-                    )
-                ],
-                expiration=Duration.days(expiration),
-            )
-        ],
         versioned=True,
-        object_lock_enabled=True,
-        object_lock_default_retention=s3.ObjectLockRetention.governance(
-            duration=Duration.days(expiration)
-        ),
+        # lifecycle_rules=[
+        #     s3.LifecycleRule(
+        #         transitions=[
+        #             s3.Transition(
+        #                 storage_class=s3.StorageClass.INFREQUENT_ACCESS,
+        #                 transition_after=Duration.days(30),
+        #             )
+        #         ],
+        #         expiration=Duration.days(expiration),
+        #     )
+        # ],
+        # object_lock_enabled=True,
+        # object_lock_default_retention=s3.ObjectLockRetention.governance(
+        #     duration=Duration.days(expiration)
+        # ),
     )
 
 
